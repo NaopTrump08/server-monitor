@@ -8,12 +8,13 @@ from PySide6.QtWidgets import QWidget
 class LiveChart(QWidget):
     """Multi-series line chart. data: list of (ts, v1, v2, v3, v4)."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, column=None):
         super().__init__(parent)
         self._data = []
         self._labels = []
         self._colors = []
         self._keys = []
+        self._column = column
         self._max_points = 120
         self._normalize = False
         self.setMinimumHeight(140)
@@ -31,6 +32,8 @@ class LiveChart(QWidget):
         self.update()
 
     def _series_values(self, idx):
+        if self._column is not None:
+            return [row[self._column] for row in self._data if len(row) > self._column]
         return [row[idx + 1] for row in self._data]
 
     def _smooth_path(self, pts):
@@ -140,18 +143,19 @@ class LiveChart(QWidget):
             p.setPen(Qt.NoPen)
             p.drawEllipse(QRectF(last_x - 3, last_y - 3, 6, 6))
 
-        # legend
-        font = QFont()
-        font.setPointSize(8)
-        p.setFont(font)
-        x = rect.left() + 8
-        for si, label in enumerate(self._labels):
-            color = QColor(self._colors[si] if si < len(self._colors) else "#7b4dff")
-            p.setPen(Qt.NoPen)
-            p.setBrush(color)
-            p.drawRoundedRect(QRectF(x, rect.top() + 6, 8, 8), 2, 2)
-            p.setPen(QColor("#86868b"))
-            p.drawText(x + 12, rect.top() + 14, label)
-            x += 12 + p.fontMetrics().horizontalAdvance(label) + 16
+        # legend (skip for single-series mini charts, which carry their own header)
+        if len(self._labels) > 1:
+            font = QFont()
+            font.setPointSize(8)
+            p.setFont(font)
+            x = rect.left() + 8
+            for si, label in enumerate(self._labels):
+                color = QColor(self._colors[si] if si < len(self._colors) else "#7b4dff")
+                p.setPen(Qt.NoPen)
+                p.setBrush(color)
+                p.drawRoundedRect(QRectF(x, rect.top() + 6, 8, 8), 2, 2)
+                p.setPen(QColor("#86868b"))
+                p.drawText(x + 12, rect.top() + 14, label)
+                x += 12 + p.fontMetrics().horizontalAdvance(label) + 16
 
         p.end()

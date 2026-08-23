@@ -72,7 +72,8 @@ def shoot():
     win.grab().save(os.path.join(out_dir, "main_window.png"))
     c0 = win._cards[0]
     c0.grab().save(os.path.join(out_dir, "card0.png"))
-    c0.chart.grab().save(os.path.join(out_dir, "chart.png"))
+    for name, chart in c0.charts.items():
+        chart.grab().save(os.path.join(out_dir, f"chart_{name.replace('%', 'pct').replace(' ', '')}.png"))
     win.close()
     app.quit()
 

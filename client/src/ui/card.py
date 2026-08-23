@@ -149,15 +149,26 @@ class ServerCard(QFrame):
         info_row.addStretch(1)
         body.addLayout(info_row)
 
-        # ---------- chart ----------
-        self.chart = LiveChart()
-        self.chart.setSeries(
-            ["cpu", "mem", "rx", "tx"],
-            ["CPU %", "MEM %", "RX", "TX"],
-            ["#7b4dff", "#4a8cff", "#34c759", "#ff9f0a"],
-            normalize=True,
-        )
-        body.addWidget(self.chart)
+        # ---------- charts: one mini chart per metric ----------
+        grid = QHBoxLayout()
+        grid.setSpacing(10)
+        self.charts = {}
+        specs = [
+            ("CPU %", "#7b4dff", 1),
+            ("MEM %", "#4a8cff", 2),
+            ("RX", "#34c759", 3),
+            ("TX", "#ff9f0a", 4),
+        ]
+        tiles = []
+        for label, color, col in specs:
+            tile = _ChartTile(label, color, col)
+            tiles.append(tile)
+            self.charts[label] = tile.chart
+        grid.addWidget(tiles[0])
+        grid.addWidget(tiles[1])
+        grid.addWidget(tiles[2])
+        grid.addWidget(tiles[3])
+        body.addLayout(grid)
 
         outer.addLayout(body)
 
@@ -190,7 +201,8 @@ class ServerCard(QFrame):
         history = status.get("history", [])
         if history != self._history:
             self._history = history
-            self.chart.setData(history)
+            for name, chart in self.charts.items():
+                chart.setData(history)
 
     def _apply_status(self, online, error=None, data=None, latency=None, last_update=None):
         data = data or {}
@@ -327,3 +339,32 @@ class _MetricLine(QWidget):
 
     def set_value(self, text):
         self.val.setText(text)
+
+
+class _ChartTile(QWidget):
+    """A single-metric mini chart with a coloured header."""
+
+    def __init__(self, title, color, column, parent=None):
+        super().__init__(parent)
+        self.setObjectName("chartTile")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(2)
+        header = QHBoxLayout()
+        header.setContentsMargins(8, 6, 8, 0)
+        dot = QLabel()
+        dot.setFixedSize(8, 8)
+        dot.setStyleSheet(
+            f"background-color: {color}; border-radius: 4px;"
+        )
+        self.title = QLabel(title)
+        self.title.setObjectName("chartTitle")
+        self.title.setStyleSheet(f"color: {color}; font-weight: 600;")
+        header.addWidget(dot)
+        header.addWidget(self.title)
+        header.addStretch(1)
+        lay.addLayout(header)
+        self.chart = LiveChart(column=column)
+        self.chart.setSeries([title], [title], [color], normalize=True)
+        self.chart.setMinimumHeight(120)
+        lay.addWidget(self.chart)

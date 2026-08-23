@@ -220,6 +220,12 @@ QProgressBar::chunk {
     color: #9a9aa8;
 }
 
+#chartTile {
+    background-color: #fafafd;
+    border: 1px solid #ececf1;
+    border-radius: 14px;
+}
+
 /* ---------- Buttons ---------- */
 QPushButton {
     background-color: #ffffff;

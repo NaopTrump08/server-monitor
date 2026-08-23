@@ -153,19 +153,32 @@ check(
 check("uptime populated", "d" in c0.uptime_line.val.text().lower(), c0.uptime_line.val.text())
 check("status ONLINE", c0.status_label.text() == "ONLINE", c0.status_label.text())
 
-# chart smooth rendering with data
-chart = c0.chart
-chart.resize(480, 160)
-chart.grab()
-app.processEvents()
-
-# chart colors per series (normalization preserved internally)
-check("chart series count", len(chart._keys) == 4, str(chart._keys))
+# four independent mini charts, each single-series
+check("chart tile count", len(c0.charts) == 4, str(list(c0.charts.keys())))
 check(
-    "chart colors updated",
-    chart._colors[0] == "#7b4dff",
-    str(chart._colors),
+    "chart keys present",
+    set(c0.charts.keys()) == {"CPU %", "MEM %", "RX", "TX"},
+    str(list(c0.charts.keys())),
 )
+cpu_chart = c0.charts["CPU %"]
+check("cpu chart single series", len(cpu_chart._keys) == 1, str(cpu_chart._keys))
+check("cpu chart purple", cpu_chart._colors[0] == "#7b4dff", str(cpu_chart._colors))
+check(
+    "cpu chart column=1",
+    cpu_chart._column == 1,
+    f"column={cpu_chart._column}",
+)
+rx_chart = c0.charts["RX"]
+check("rx chart green", rx_chart._colors[0] == "#34c759", str(rx_chart._colors))
+check("rx chart column=3", rx_chart._column == 3, f"column={rx_chart._column}")
+
+# each mini chart renders with the injected history
+cpu_chart.resize(220, 120)
+cpu_chart.grab()
+app.processEvents()
+img = cpu_chart.grab().toImage()
+col = img.pixelColor(110, 60).name().upper()
+check("cpu chart renders non-blank", img.pixel(110, 60) != img.pixel(0, 0), col)
 
 # ---------- SettingsDialog ----------
 dlg = SettingsDialog(current=5)
