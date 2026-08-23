@@ -20,13 +20,19 @@ def main():
     from ui.theme import STYLE_SHEET
     from ui.main_window import MainWindow
 
+    import logging
+
+    log = logging.getLogger("main")
+
     app = QApplication(sys.argv)
     app.setApplicationName("Server Monitor")
     app.setStyle("Fusion")
     app.setStyleSheet(STYLE_SHEET)
 
     win = MainWindow()
+    log.info("MainWindow constructed")
     win.show()
+    log.info("MainWindow shown, entering event loop")
     sys.exit(app.exec())
 
 

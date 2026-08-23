@@ -1,5 +1,7 @@
 """VNC remote desktop window."""
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -12,6 +14,8 @@ from PySide6.QtWidgets import (
 )
 
 from vnc_client import VNCClient
+
+log = logging.getLogger("vncwin")
 
 
 class VNCWindow(QMainWindow):
@@ -54,7 +58,9 @@ class VNCWindow(QMainWindow):
         host = self._cfg.get("host", "")
         port = int(self._cfg.get("vnc_port") or 5901)
         password = self._cfg.get("vnc_password", "")
+        log.info("VNCWindow._connect host=%s port=%s has_password=%s", host, port, bool(password))
         self.viewer.connect_to(host, port, password=password)
+        log.info("VNCWindow._connect thread started")
 
     def _refresh(self):
         self.viewer.disconnect()

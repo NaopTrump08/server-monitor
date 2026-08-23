@@ -1,6 +1,8 @@
 """Main application window."""
 
-from PySide6.QtCore import Qt, QTimer, Signal
+import logging
+
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -21,10 +23,10 @@ from ui.server_dialog import ServerDialog
 from ui.vnc_window import VNCWindow
 from ui.format import format_time
 
+log = logging.getLogger("main")
+
 
 class MainWindow(QMainWindow):
-    data_ready = Signal(object)
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Server Monitor")
@@ -33,12 +35,18 @@ class MainWindow(QMainWindow):
         self._cards = {}
         self._vnc_windows = []
 
-        self.monitor = ServerMonitor(self.config, on_update=self.data_ready.emit)
-        self.data_ready.connect(self._on_data)
+        self.monitor = ServerMonitor(self.config)
         self.monitor.start()
 
         self._build_ui()
         self._rebuild_cards()
+
+        # UI refresh pump: pull the latest monitor snapshot on the main
+        # thread. The monitor thread never touches Qt, so there is no
+        # cross-thread signal that could stall the GUI on Windows.
+        self._ui_timer = QTimer(self)
+        self._ui_timer.timeout.connect(self._refresh_ui)
+        self._ui_timer.start(1000)
 
         # periodic card rebuild when server list changes
         self._cfg_check_timer = QTimer(self)
@@ -141,7 +149,8 @@ class MainWindow(QMainWindow):
         if len(servers) != len(self._cards):
             self._rebuild_cards()
 
-    def _on_data(self, snapshot):
+    def _refresh_ui(self):
+        snapshot = self.monitor.snapshot()
         for sid, data in snapshot.items():
             card = self._cards.get(sid)
             if card:
@@ -164,17 +173,22 @@ class MainWindow(QMainWindow):
     def _open_vnc(self, server_id):
         cfg = self.config.get_server(server_id)
         if not cfg:
+            log.warning("open_vnc: no config for server %s", server_id)
             return
+        log.info("open_vnc: server %s cfg=%s", server_id, cfg.get("host"))
         if not cfg.get("vnc_port"):
             QMessageBox.information(self, "VNC", "No VNC port configured for this server.")
             return
+        log.info("open_vnc: creating VNCWindow")
         win = VNCWindow(cfg)
         self._vnc_windows.append(win)
         win.closed = None
         win.destroyed.connect(lambda: self._remove_vnc(win))
+        log.info("open_vnc: showing window")
         win.show()
         win.raise_()
         win.activateWindow()
+        log.info("open_vnc: done")
 
     def _remove_vnc(self, win):
         if win in self._vnc_windows:

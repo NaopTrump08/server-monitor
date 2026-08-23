@@ -1,10 +1,13 @@
 """Server data fetching with background thread and history buffering."""
 
+import logging
 import threading
 import time
 from collections import deque
 
 import requests
+
+log = logging.getLogger("monitor")
 
 
 class ServerStatus:
@@ -47,6 +50,7 @@ class ServerMonitor:
             self._thread.join(timeout=5)
 
     def _loop(self):
+        log.info("Monitor thread started")
         while not self._stop.is_set():
             servers = self._config.servers
             # refresh server list statuses
@@ -98,12 +102,14 @@ class ServerMonitor:
                     st.online = False
                     st.error = f"HTTP {resp.status_code}"
                     st.latency_ms = round(latency, 1)
+                log.warning("fetch %s -> HTTP %s", url, resp.status_code)
         except requests.RequestException as e:
             with self._lock:
                 st = self._statuses[sid]
                 st.online = False
                 st.error = str(e.__class__.__name__)
                 st.latency_ms = None
+            log.warning("fetch %s failed: %s", url, e)
 
     def _append_history(self, sid, data):
         cpu = data.get("cpu", {}).get("percent", 0)
