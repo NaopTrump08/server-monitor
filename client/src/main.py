@@ -12,6 +12,11 @@ def main():
 
     from PySide6.QtWidgets import QApplication
 
+    import app_log
+
+    app_log.setup_logging()
+    app_log.install_excepthook()
+
     from ui.theme import STYLE_SHEET
     from ui.main_window import MainWindow
 

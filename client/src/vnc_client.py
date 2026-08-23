@@ -7,12 +7,14 @@ Implements a minimal, dependency-free RFB client supporting:
 - Keyboard and mouse input forwarding
 """
 
+import collections
+import logging
 import socket
 import struct
 import threading
 import zlib
 
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, QTimer, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -23,6 +25,8 @@ from PySide6.QtGui import (
     QPen,
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
+
+log = logging.getLogger("vnc")
 
 
 class VNCError(Exception):
@@ -45,15 +49,22 @@ class VNCClient(QWidget):
         self._image = None
         self._pending_geom = (0, 0)
         self._lock = threading.Lock()
-        self._fb_update_thread = None
         self._fb_buf = None
-        self.frame_received.connect(self._render_frame)
+        self._frame_queue = collections.deque()
+        self._queue_lock = threading.Lock()
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumSize(320, 240)
         self.setFocusPolicy(Qt.StrongFocus)
         self._loading = True
         self._message = "Not connected"
+
+        # Main-thread render pump: drains the frame queue at 30 FPS.
+        # Background threads only enqueue bytes; all Qt calls stay here.
+        self._pump = QTimer(self)
+        self._pump.setInterval(33)
+        self._pump.timeout.connect(self._drain_frames)
+        self._pump.start()
 
     # ---------------------------------------------------------------- connect
     def connect_to(self, host, port, password=None, timeout=10):
@@ -82,18 +93,21 @@ class VNCClient(QWidget):
     # ---------------------------------------------------------------- RFB loop
     def _run(self, host, port, password, timeout):
         try:
+            log.info("Connecting to %s:%s (password=%s)", host, port, bool(password))
             self._sock = socket.create_connection((host, port), timeout=timeout)
             self._sock.settimeout(30)
             self._handshake(password)
             self._running = True
             self._loading = False
             self._message = ""
+            log.info("Connected to %s:%s framebuffer %sx%s", host, port, self._width, self._height)
             self.update()
             self.connected.emit()
             self._message_loop()
         except Exception as e:
             self._loading = False
             self._message = f"Connection failed: {e}"
+            log.error("VNC connection error: %s", e, exc_info=True)
             self.update()
             self.disconnected.emit(str(e))
             self._sock = None
@@ -168,9 +182,6 @@ class VNCClient(QWidget):
         self._server_name = self._recv_exact(name_len).decode(errors="replace")
 
         self._fb_buf = bytearray(self._width * self._height * 4)
-
-        self._fb_update_thread = threading.Thread(target=self._fb_consumer, daemon=True)
-        self._fb_update_thread.start()
 
         # Use the server's default pixel format (no SetPixelFormat message),
         # which is 32-bit little-endian RGB888 for x11vnc. This matches what
@@ -260,18 +271,20 @@ class VNCClient(QWidget):
     def _apply_raw(self, x, y, w, h, data):
         # Server default format: 32-bit little-endian RGB888.
         # Qt Format_RGB32 memory layout is B,G,R,A per pixel, so bytes match.
-        # Keep the byte framebuffer for CopyRect, then hand to the main thread.
+        # Keep the byte framebuffer for CopyRect, then enqueue for the
+        # main-thread render pump.
         if self._fb_buf is not None:
             stride = self._width * 4
             for row in range(h):
                 src = row * w * 4
                 dst = (y + row) * stride + x * 4
                 self._fb_buf[dst:dst + w * 4] = data[src:src + w * 4]
-        self.frame_received.emit(x, y, w, h, data[: w * h * 4])
+        with self._queue_lock:
+            self._frame_queue.append((x, y, w, h, bytes(data[: w * h * 4])))
 
     def _apply_copyrect(self, x, y, w, h, sx, sy):
         # Operate on the byte framebuffer in the background thread,
-        # then hand the region to the main thread for Qt rendering.
+        # then enqueue the region for the main-thread render pump.
         if self._fb_buf is None:
             return
         stride = self._width * 4
@@ -280,7 +293,8 @@ class VNCClient(QWidget):
             dst_off = (y + row) * stride + x * 4
             self._fb_buf[dst_off:dst_off + w * 4] = self._fb_buf[src_off:src_off + w * 4]
         region = bytes(self._fb_buf[y * stride + x * 4 : (y + h) * stride + x * 4])
-        self.frame_received.emit(x, y, w, h, region)
+        with self._queue_lock:
+            self._frame_queue.append((x, y, w, h, region))
 
     def _apply_zrle(self, x, y, w, h, data):
         # Decode ZRLE into raw 32-bit bytes (little-endian BGRA/RGB32 layout),
@@ -354,9 +368,10 @@ class VNCClient(QWidget):
                     src = row * stride
                     dst = (y + row) * fb_stride + x * 4
                     self._fb_buf[dst:dst + stride] = buf[src:src + stride]
-            self.frame_received.emit(x, y, w, h, bytes(buf))
-        except Exception:
-            pass
+            with self._queue_lock:
+                self._frame_queue.append((x, y, w, h, bytes(buf)))
+        except Exception as e:
+            log.warning("ZRLE decode failed: %s", e)
 
     def _fill(self, buf, stride, x, y, w, h, color):
         b, g, r = color
@@ -389,6 +404,21 @@ class VNCClient(QWidget):
             bit += 1
         return out
 
+    def _drain_frames(self):
+        # Main-thread render pump: pull everything queued by background
+        # threads and composite into the framebuffer.
+        frames = []
+        with self._queue_lock:
+            if not self._frame_queue:
+                return
+            frames = list(self._frame_queue)
+            self._frame_queue.clear()
+        for x, y, w, h, raw in frames:
+            try:
+                self._render_frame(x, y, w, h, raw)
+            except Exception as e:
+                log.error("Render failed at (%s,%s %sx%s): %s", x, y, w, h, e)
+
     def _render_frame(self, x, y, w, h, raw):
         # Runs on the Qt main thread: build a QImage from raw 32-bit bytes
         # and composite it into the framebuffer.
@@ -396,10 +426,10 @@ class VNCClient(QWidget):
             return
         if len(raw) < w * h * 4:
             return
-        img = QImage(w, h, QImage.Format_RGB32)
-        buf = img.bits()
-        mv = buf.cast("B") if hasattr(buf, "cast") else memoryview(buf)
-        mv[:] = raw[: w * h * 4]
+        # QImage(bytes, w, h, bytesPerLine, format) references the buffer
+        # without copying; drawImage below copies the pixels synchronously,
+        # so `raw` staying alive for this function body is sufficient.
+        img = QImage(raw, w, h, w * 4, QImage.Format_RGB32)
         with self._lock:
             if (
                 self._image is None
@@ -413,10 +443,6 @@ class VNCClient(QWidget):
             painter.end()
         self.update()
         self.framebuffer_changed.emit(self._width, self._height)
-
-    def _fb_consumer(self):
-        # placeholder thread kept for structure; rendering happens in _message_loop
-        pass
 
     # ---------------------------------------------------------------- painting
     def paintEvent(self, event):
