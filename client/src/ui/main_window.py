@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
     def __init__(self, config=None):
         super().__init__()
         self.setWindowTitle("Server Monitor")
-        self.resize(1100, 780)
+        self.resize(1360, 900)
         self.config = config or Config()
         self._cards = {}
         self._vnc_windows = []
@@ -70,10 +70,10 @@ class MainWindow(QMainWindow):
         # ---------- sidebar ----------
         sidebar = QWidget()
         sidebar.setObjectName("sideBar")
-        sidebar.setFixedWidth(210)
+        sidebar.setFixedWidth(240)
         side_lay = QVBoxLayout(sidebar)
-        side_lay.setContentsMargins(14, 20, 14, 20)
-        side_lay.setSpacing(4)
+        side_lay.setContentsMargins(16, 24, 16, 24)
+        side_lay.setSpacing(6)
 
         brand_row = QWidget()
         brand_row.setObjectName("brandRow")
@@ -82,10 +82,10 @@ class MainWindow(QMainWindow):
         brand_lay.setSpacing(10)
         brand_icon = QLabel("S")
         brand_icon.setObjectName("brandIcon")
-        brand_icon.setFixedSize(34, 34)
+        brand_icon.setFixedSize(40, 40)
         brand_icon.setAlignment(Qt.AlignCenter)
         brand_icon.setStyleSheet(
-            "color: #ffffff; font-size: 17px; font-weight: 700;"
+            "color: #ffffff; font-size: 19px; font-weight: 700;"
         )
         brand_name = QLabel("Server Monitor")
         brand_name.setObjectName("brandName")
@@ -136,9 +136,9 @@ class MainWindow(QMainWindow):
         # top bar
         top = QWidget()
         top.setObjectName("topBar")
-        top.setFixedHeight(64)
+        top.setFixedHeight(72)
         top_lay = QHBoxLayout(top)
-        top_lay.setContentsMargins(24, 0, 20, 0)
+        top_lay.setContentsMargins(28, 0, 24, 0)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(0)
@@ -178,13 +178,10 @@ class MainWindow(QMainWindow):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setObjectName("cardScroll")
-        self._scroll.setStyleSheet(
-            "QScrollArea#cardScroll, QScrollArea#cardScroll > QWidget > QWidget { background-color: #f6f7fb; }"
-        )
         self._container = QWidget()
         self._cards_layout = QVBoxLayout(self._container)
-        self._cards_layout.setContentsMargins(24, 18, 24, 18)
-        self._cards_layout.setSpacing(16)
+        self._cards_layout.setContentsMargins(28, 22, 28, 22)
+        self._cards_layout.setSpacing(20)
         self._cards_layout.addStretch(1)
         self._scroll.setWidget(self._container)
         right_lay.addWidget(self._scroll, 1)
@@ -358,7 +355,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About Server Monitor",
-            "Server Monitor v1.3.2\n\n"
+            "Server Monitor v1.3.3\n\n"
             "Multi-server monitoring with live charts and VNC remote desktop.\n\n"
             "Uses a lightweight agent (monitor_agent.py) running on each server.",
         )

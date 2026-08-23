@@ -23,7 +23,7 @@ class VNCWindow(QMainWindow):
         super().__init__(parent)
         self._cfg = server_cfg
         self.setWindowTitle(f"VNC — {server_cfg.get('name', server_cfg.get('host', ''))}")
-        self.resize(1100, 700)
+        self.resize(1280, 800)
         self._build_ui()
         self._connect()
 

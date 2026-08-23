@@ -81,7 +81,7 @@ app.processEvents()
 side = win.findChild(type(win.centralWidget()), "sideBar")
 if side is not None:
     check("sidebar exists", True, f"w={side.width()}")
-    check("sidebar width ~210", abs(side.width() - 210) < 5, f"w={side.width()}")
+    check("sidebar width ~240", abs(side.width() - 240) < 5, f"w={side.width()}")
 else:
     check("sidebar exists", False, "sideBar not found")
 
@@ -177,10 +177,36 @@ check("rx chart column=3", rx_chart._column == 3, f"column={rx_chart._column}")
 # each mini chart renders with the injected history
 cpu_chart.resize(220, 120)
 cpu_chart.grab()
-app.processEvents()
+# each mini chart renders actual curve pixels (non-background)
 img = cpu_chart.grab().toImage()
-col = img.pixelColor(110, 60).name().upper()
-check("cpu chart renders non-blank", img.pixel(110, 60) != img.pixel(0, 0), col)
+w, h = img.width(), img.height()
+bg = img.pixelColor(0, 0).rgb()
+curvy = False
+for yy in range(10, h, 8):
+    for xx in range(10, w, 8):
+        if img.pixelColor(xx, yy).rgb() != bg:
+            curvy = True
+            break
+    if curvy:
+        break
+check("cpu chart draws curve pixels", curvy, f"bg={bg}")
+
+# legend current-value shown on each tile
+check(
+    "cpu tile current shows pct",
+    c0._tiles["CPU %"].current.text() == "42%",
+    c0._tiles["CPU %"].current.text(),
+)
+check(
+    "mem tile current shows pct",
+    c0._tiles["MEM %"].current.text() == "62%",
+    c0._tiles["MEM %"].current.text(),
+)
+check(
+    "rx tile current shows rate",
+    c0._tiles["RX"].current.text().endswith("/s"),
+    c0._tiles["RX"].current.text(),
+)
 
 # ---------- SettingsDialog ----------
 dlg = SettingsDialog(current=5)

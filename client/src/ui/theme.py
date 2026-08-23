@@ -114,7 +114,7 @@ _QSS_TEMPLATE = string.Template("""
 * {
     font-family: "SF Pro Text", "SF Pro Display", "Segoe UI", "PingFang SC",
                  "Microsoft YaHei", sans-serif;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 QMainWindow, QDialog {
@@ -148,7 +148,7 @@ QWidget {
 }
 
 #brandName {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
     color: $text;
 }
@@ -158,9 +158,9 @@ QPushButton#navButton {
     background-color: transparent;
     color: $text_dim;
     border: none;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-size: 13px;
+    border-radius: 14px;
+    padding: 13px 18px;
+    font-size: 14px;
     font-weight: 500;
     text-align: left;
 }
@@ -202,13 +202,13 @@ QPushButton#themeButton:hover {
 }
 
 #appTitle {
-    font-size: 22px;
+    font-size: 26px;
     font-weight: 700;
     color: $text;
 }
 
 #appSubtitle {
-    font-size: 12px;
+    font-size: 13px;
     color: $text_dim;
 }
 
@@ -247,7 +247,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 #serverCard {
     background-color: $card_bg;
     border: 1px solid $border;
-    border-radius: 20px;
+    border-radius: 26px;
 }
 
 #serverCard:hover {
@@ -259,23 +259,23 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 }
 
 #serverName {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
     color: $text;
 }
 
 #serverHost {
-    font-size: 11px;
+    font-size: 12px;
     color: $text_dim;
 }
 
 #statusDot {
     background-color: $green;
-    border-radius: 5px;
-    min-width: 10px;
-    max-width: 10px;
-    min-height: 10px;
-    max-height: 10px;
+    border-radius: 6px;
+    min-width: 12px;
+    max-width: 12px;
+    min-height: 12px;
+    max-height: 12px;
 }
 
 #statusDot.offline {
@@ -283,7 +283,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 }
 
 #statusLabel {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: $green;
 }
@@ -299,24 +299,24 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 #cardBanner[accent="orange"] { background-color: rgba(255, 201, 74, 0.08); }
 
 #metricValue {
-    font-size: 24px;
+    font-size: 30px;
     font-weight: 700;
     color: $text;
 }
 
 #metricValue.small {
-    font-size: 18px;
+    font-size: 22px;
 }
 
 #metricLabel {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     color: $text_dim;
 }
 
 #metricCard {
     background-color: $metric_bg;
-    border-radius: 14px;
+    border-radius: 18px;
 }
 
 #metricCard:hover {
@@ -327,13 +327,13 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 QProgressBar {
     background-color: $gauge_track;
     border: none;
-    border-radius: 5px;
-    height: 9px;
+    border-radius: 6px;
+    height: 11px;
     text-align: center;
 }
 
 QProgressBar::chunk {
-    border-radius: 5px;
+    border-radius: 6px;
 }
 
 #gaugeCpu QProgressBar::chunk {
@@ -348,18 +348,18 @@ QProgressBar::chunk {
 /* ---------- Chart ---------- */
 #chartWidget {
     background-color: $chart_bg;
-    border-radius: 14px;
+    border-radius: 18px;
 }
 
 #chartTitle {
-    font-size: 11px;
+    font-size: 12px;
     color: $text_dim;
 }
 
 #chartTile {
     background-color: $tile_bg;
     border: 1px solid $border;
-    border-radius: 14px;
+    border-radius: 18px;
 }
 
 /* ---------- Buttons ---------- */
@@ -367,8 +367,8 @@ QPushButton {
     background-color: $btn_bg;
     color: $text;
     border: 1px solid $border_strong;
-    border-radius: 10px;
-    padding: 7px 16px;
+    border-radius: 12px;
+    padding: 8px 18px;
     font-weight: 500;
 }
 
@@ -392,7 +392,7 @@ QPushButton#primaryButton {
         stop:0 $purple, stop:1 $purple_end);
     color: #ffffff;
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
 }
 
 QPushButton#primaryButton:hover {
@@ -404,7 +404,7 @@ QPushButton#secondaryButton {
     background-color: transparent;
     color: $purple;
     border: 1px solid $border_strong;
-    border-radius: 10px;
+    border-radius: 12px;
 }
 
 QPushButton#secondaryButton:hover {
@@ -416,7 +416,7 @@ QPushButton#dangerButton {
     background-color: transparent;
     color: $red;
     border: 1px solid #f3dcdc;
-    border-radius: 10px;
+    border-radius: 12px;
 }
 
 QPushButton#dangerButton:hover {
@@ -427,7 +427,7 @@ QPushButton#dangerButton:hover {
 QPushButton#iconButton {
     background-color: transparent;
     border: none;
-    padding: 4px 8px;
+    padding: 4px 10px;
     color: $text_dim;
 }
 
@@ -440,8 +440,8 @@ QPushButton#iconButton:hover {
 QLineEdit, QSpinBox {
     background-color: $input_bg;
     border: 1px solid $border_strong;
-    border-radius: 10px;
-    padding: 7px 12px;
+    border-radius: 12px;
+    padding: 8px 14px;
     color: $text;
     selection-background-color: $purple;
 }
@@ -506,17 +506,17 @@ QLabel#hint {
 #emptyBox {
     background-color: $card_bg;
     border: 1px dashed $empty_border;
-    border-radius: 20px;
+    border-radius: 26px;
 }
 
 #emptyTitle {
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 700;
     color: $text;
 }
 
 #emptyHint {
-    font-size: 13px;
+    font-size: 14px;
     color: $text_dim;
 }
 
@@ -537,9 +537,40 @@ def build_stylesheet(mode="light"):
 
 
 def apply_theme(app, mode="light"):
-    """Set the active mode and re-apply the stylesheet app-wide."""
+    """Set the active mode and re-apply the stylesheet app-wide.
+
+    A matching QPalette is also installed so any widget that falls back to
+    the palette (e.g. a QSS 'transparent' background) renders the right
+    colour instead of the default light Fusion palette.
+    """
     set_mode(mode)
     app.setStyleSheet(build_stylesheet(mode))
+    app.setPalette(make_palette(mode))
+
+
+def make_palette(mode):
+    """Return a QPalette consistent with the given mode."""
+    from PySide6.QtGui import QColor, QPalette
+
+    if mode == "dark":
+        t = TOKENS["dark"]
+        pal = QPalette()
+        pal.setColor(QPalette.Window, QColor(t["window_bg"]))
+        pal.setColor(QPalette.WindowText, QColor(t["text"]))
+        pal.setColor(QPalette.Base, QColor(t["input_bg"]))
+        pal.setColor(QPalette.AlternateBase, QColor(t["metric_bg"]))
+        pal.setColor(QPalette.ToolTipBase, QColor(t["card_bg"]))
+        pal.setColor(QPalette.ToolTipText, QColor(t["text"]))
+        pal.setColor(QPalette.Text, QColor(t["text"]))
+        pal.setColor(QPalette.Button, QColor(t["btn_bg"]))
+        pal.setColor(QPalette.ButtonText, QColor(t["text"]))
+        pal.setColor(QPalette.BrightText, QColor("#ffffff"))
+        pal.setColor(QPalette.Highlight, QColor(BRAND["purple"]))
+        pal.setColor(QPalette.HighlightedText, QColor("#ffffff"))
+        pal.setColor(QPalette.Link, QColor(BRAND["blue"]))
+        pal.setColor(QPalette.PlaceholderText, QColor(t["text_dim"]))
+        return pal
+    return QPalette()
 
 
 STYLE_SHEET = build_stylesheet("light")

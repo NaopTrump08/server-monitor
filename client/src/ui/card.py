@@ -36,7 +36,7 @@ class ServerCard(QFrame):
 
     def _build_ui(self):
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 14)
+        outer.setContentsMargins(0, 0, 0, 20)
         outer.setSpacing(0)
 
         # ---------- gradient banner ----------
@@ -45,14 +45,14 @@ class ServerCard(QFrame):
         banner.setObjectName("cardBanner")
         banner.setProperty("accent", self.accent)
         banner.setStyleSheet(
-            "border-top-left-radius: 20px; border-top-right-radius: 20px;"
+            "border-top-left-radius: 26px; border-top-right-radius: 26px;"
         )
         h = QHBoxLayout(banner)
-        h.setContentsMargins(18, 14, 18, 14)
-        h.setSpacing(8)
+        h.setContentsMargins(22, 18, 22, 18)
+        h.setSpacing(10)
 
         self.status_dot = QLabel()
-        self.status_dot.setFixedSize(10, 10)
+        self.status_dot.setFixedSize(12, 12)
         self.status_dot.setObjectName("statusDot")
 
         name_col = QVBoxLayout()
@@ -101,12 +101,12 @@ class ServerCard(QFrame):
 
         # ---------- body ----------
         body = QVBoxLayout()
-        body.setContentsMargins(16, 14, 16, 0)
-        body.setSpacing(10)
+        body.setContentsMargins(20, 18, 20, 0)
+        body.setSpacing(14)
 
         # metrics row
         metrics = QHBoxLayout()
-        metrics.setSpacing(10)
+        metrics.setSpacing(14)
         self.cpu_value = _MetricValue()
         self.mem_value = _MetricValue()
         self.disk_value = _MetricValue()
@@ -152,8 +152,9 @@ class ServerCard(QFrame):
 
         # ---------- charts: one mini chart per metric ----------
         grid = QHBoxLayout()
-        grid.setSpacing(10)
+        grid.setSpacing(12)
         self.charts = {}
+        self._tiles = {}
         specs = [
             ("CPU %", "#7b4dff", 1),
             ("MEM %", "#4a8cff", 2),
@@ -165,6 +166,7 @@ class ServerCard(QFrame):
             tile = _ChartTile(label, color, col)
             tiles.append(tile)
             self.charts[label] = tile.chart
+            self._tiles[label] = tile
         grid.addWidget(tiles[0])
         grid.addWidget(tiles[1])
         grid.addWidget(tiles[2])
@@ -253,16 +255,24 @@ class ServerCard(QFrame):
 
         net = data.get("network", {})
         if online:
-            self.rx_line.set_value(format_rate(net.get("rx_rate", 0)))
-            self.tx_line.set_value(format_rate(net.get("tx_rate", 0)))
+            rx = format_rate(net.get("rx_rate", 0))
+            tx = format_rate(net.get("tx_rate", 0))
+            self.rx_line.set_value(rx)
+            self.tx_line.set_value(tx)
             sysinfo = data.get("system", {})
             self.uptime_line.set_value(format_uptime(sysinfo.get("uptime", 0)))
             self.update_line.set_value(format_time(last_update))
+            self._tiles["CPU %"].set_current(f"{cpu_pct:.0f}%")
+            self._tiles["MEM %"].set_current(f"{mem_pct:.0f}%")
+            self._tiles["RX"].set_current(rx)
+            self._tiles["TX"].set_current(tx)
         else:
             self.rx_line.set_value("-")
             self.tx_line.set_value("-")
             self.uptime_line.set_value("-")
             self.update_line.set_value("-")
+            for tile in self._tiles.values():
+                tile.set_current("--")
 
 
 class _MetricValue(QWidget):
@@ -373,13 +383,13 @@ class _ChartTile(QWidget):
         self.setObjectName("chartTile")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(2)
+        lay.setSpacing(4)
         header = QHBoxLayout()
-        header.setContentsMargins(8, 6, 8, 0)
+        header.setContentsMargins(12, 10, 12, 0)
         dot = QLabel()
-        dot.setFixedSize(8, 8)
+        dot.setFixedSize(10, 10)
         dot.setStyleSheet(
-            f"background-color: {color}; border-radius: 4px;"
+            f"background-color: {color}; border-radius: 5px;"
         )
         self.title = QLabel(title)
         self.title.setObjectName("chartTitle")
@@ -387,11 +397,18 @@ class _ChartTile(QWidget):
         header.addWidget(dot)
         header.addWidget(self.title)
         header.addStretch(1)
+        self.current = QLabel("--")
+        self.current.setObjectName("chartTitle")
+        self.current.setStyleSheet(f"color: {color}; font-weight: 700;")
+        header.addWidget(self.current)
         lay.addLayout(header)
         self.chart = LiveChart(column=column)
         self.chart.setSeries([title], [title], [color], normalize=True)
-        self.chart.setMinimumHeight(120)
+        self.chart.setMinimumHeight(160)
         lay.addWidget(self.chart)
+
+    def set_current(self, text):
+        self.current.setText(text)
 
     def refresh_colour(self, tk):
         self.chart.update()
