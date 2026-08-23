@@ -40,6 +40,7 @@ class VNCWindow(QMainWindow):
         # toolbar
         tb = QToolBar("Tools")
         tb.setMovable(False)
+        tb.setObjectName("vncToolBar")
         self.addToolBar(tb)
 
         self.status_label = QLabel(" Connecting...")

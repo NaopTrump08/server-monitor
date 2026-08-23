@@ -31,16 +31,23 @@ class ServerCard(QFrame):
         self._build_ui()
         self._apply_status(online=False, error="Waiting...")
 
+    ACCENTS = ["purple", "blue", "pink", "orange"]
+
     def _build_ui(self):
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(16, 14, 16, 14)
-        outer.setSpacing(10)
+        outer.setContentsMargins(0, 0, 0, 14)
+        outer.setSpacing(0)
 
-        # ---------- header ----------
-        header = QWidget()
-        header.setObjectName("cardHeader")
-        h = QHBoxLayout(header)
-        h.setContentsMargins(0, 0, 0, 0)
+        # ---------- gradient banner ----------
+        banner = QWidget()
+        self.accent = self.ACCENTS[self.server_id % len(self.ACCENTS)]
+        banner.setObjectName("cardBanner")
+        banner.setProperty("accent", self.accent)
+        banner.setStyleSheet(
+            "border-top-left-radius: 20px; border-top-right-radius: 20px;"
+        )
+        h = QHBoxLayout(banner)
+        h.setContentsMargins(18, 14, 18, 14)
         h.setSpacing(8)
 
         self.status_dot = QLabel()
@@ -59,6 +66,9 @@ class ServerCard(QFrame):
         h.addWidget(self.status_dot)
         h.addLayout(name_col)
         h.addStretch(1)
+
+        self.latency_label = QLabel("")
+        self.latency_label.setObjectName("serverHost")
 
         self.status_label = QLabel("OFFLINE")
         self.status_label.setObjectName("statusLabel")
@@ -81,17 +91,19 @@ class ServerCard(QFrame):
         self.del_btn.setCursor(Qt.PointingHandCursor)
         self.del_btn.clicked.connect(self._delete_clicked)
 
-        self.latency_label = QLabel("")
-        self.latency_label.setObjectName("serverHost")
-
         h.addWidget(self.latency_label)
         h.addWidget(self.status_label)
         h.addWidget(self.vnc_btn)
         h.addWidget(self.edit_btn)
         h.addWidget(self.del_btn)
-        outer.addWidget(header)
+        outer.addWidget(banner)
 
-        # ---------- metrics row ----------
+        # ---------- body ----------
+        body = QVBoxLayout()
+        body.setContentsMargins(16, 14, 16, 0)
+        body.setSpacing(10)
+
+        # metrics row
         metrics = QHBoxLayout()
         metrics.setSpacing(10)
         self.cpu_value = _MetricValue()
@@ -100,16 +112,19 @@ class ServerCard(QFrame):
         self.cpu_value.set_title("CPU")
         self.mem_value.set_title("Memory")
         self.disk_value.set_title("Disk")
+        self.cpu_value.set_accent(self.accent)
+        self.mem_value.set_accent(self.accent)
+        self.disk_value.set_accent(self.accent)
         metrics.addWidget(self.cpu_value)
         metrics.addWidget(self.mem_value)
         metrics.addWidget(self.disk_value)
-        outer.addLayout(metrics)
+        body.addLayout(metrics)
 
         # ---------- gauges ----------
         self.cpu_bar = _Gauge("CPU Usage", "#3b82f6", "gaugeCpu")
         self.mem_bar = _Gauge("Memory", "#a855f7", "gaugeMem")
-        outer.addWidget(self.cpu_bar)
-        outer.addWidget(self.mem_bar)
+        body.addWidget(self.cpu_bar)
+        body.addWidget(self.mem_bar)
 
         # ---------- network + info row ----------
         info_row = QHBoxLayout()
@@ -132,17 +147,19 @@ class ServerCard(QFrame):
         info_row.addLayout(right_col)
 
         info_row.addStretch(1)
-        outer.addLayout(info_row)
+        body.addLayout(info_row)
 
         # ---------- chart ----------
         self.chart = LiveChart()
         self.chart.setSeries(
             ["cpu", "mem", "rx", "tx"],
             ["CPU %", "MEM %", "RX", "TX"],
-            ["#0071e3", "#af52de", "#34c759", "#ff9f0a"],
+            ["#7b4dff", "#4a8cff", "#34c759", "#ff9f0a"],
             normalize=True,
         )
-        outer.addWidget(self.chart)
+        body.addWidget(self.chart)
+
+        outer.addLayout(body)
 
     def _vnc_clicked(self):
         if self._on_vnc:
@@ -225,9 +242,17 @@ class ServerCard(QFrame):
 
 
 class _MetricValue(QWidget):
+    ACCENT_COLORS = {
+        "purple": "#7b4dff",
+        "blue": "#4a8cff",
+        "pink": "#ff6fa8",
+        "orange": "#ff9f0a",
+    }
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("metricCard")
+        self._accent = "purple"
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 10, 12, 10)
         lay.setSpacing(2)
@@ -237,6 +262,11 @@ class _MetricValue(QWidget):
         self.label.setObjectName("metricLabel")
         lay.addWidget(self.value)
         lay.addWidget(self.label)
+
+    def set_accent(self, accent):
+        self._accent = accent
+        color = self.ACCENT_COLORS.get(accent, "#7b4dff")
+        self.value.setStyleSheet(f"color: {color};")
 
     def set_value(self, value, unit):
         if value is None:

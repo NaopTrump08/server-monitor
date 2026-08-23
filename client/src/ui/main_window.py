@@ -4,6 +4,10 @@ import logging
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -27,11 +31,11 @@ log = logging.getLogger("main")
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, config=None):
         super().__init__()
         self.setWindowTitle("Server Monitor")
         self.resize(1100, 780)
-        self.config = Config()
+        self.config = config or Config()
         self._cards = {}
         self._vnc_windows = []
 
@@ -56,20 +60,80 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------------- UI build
     def _build_ui(self):
         central = QWidget()
-        root = QVBoxLayout(central)
+        root = QHBoxLayout(central)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
+
+        # ---------- sidebar ----------
+        sidebar = QWidget()
+        sidebar.setObjectName("sideBar")
+        sidebar.setFixedWidth(210)
+        side_lay = QVBoxLayout(sidebar)
+        side_lay.setContentsMargins(14, 20, 14, 20)
+        side_lay.setSpacing(4)
+
+        brand_row = QWidget()
+        brand_row.setObjectName("brandRow")
+        brand_lay = QHBoxLayout(brand_row)
+        brand_lay.setContentsMargins(6, 0, 6, 14)
+        brand_lay.setSpacing(10)
+        brand_icon = QLabel("S")
+        brand_icon.setObjectName("brandIcon")
+        brand_icon.setFixedSize(34, 34)
+        brand_icon.setAlignment(Qt.AlignCenter)
+        brand_icon.setStyleSheet(
+            "color: #ffffff; font-size: 17px; font-weight: 700;"
+        )
+        brand_name = QLabel("Server Monitor")
+        brand_name.setObjectName("brandName")
+        brand_lay.addWidget(brand_icon)
+        brand_lay.addWidget(brand_name)
+        brand_lay.addStretch(1)
+        side_lay.addWidget(brand_row)
+
+        # nav buttons (checkable so the active one stays highlighted)
+        nav_items = [
+            ("Dashboard", self._show_dashboard),
+            ("Add Server", self._add_server),
+            ("Settings", self._open_settings),
+        ]
+        self._nav_btns = []
+        for text, cb in nav_items:
+            b = QPushButton(text)
+            b.setObjectName("navButton")
+            b.setCheckable(True)
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(cb)
+            side_lay.addWidget(b)
+            self._nav_btns.append(b)
+        self._nav_btns[0].setChecked(True)
+
+        side_lay.addStretch(1)
+
+        about_btn = QPushButton("About")
+        about_btn.setObjectName("navButton")
+        about_btn.setCursor(Qt.PointingHandCursor)
+        about_btn.clicked.connect(self._about)
+        side_lay.addWidget(about_btn)
+
+        root.addWidget(sidebar)
+
+        # ---------- right pane ----------
+        right = QWidget()
+        right_lay = QVBoxLayout(right)
+        right_lay.setContentsMargins(0, 0, 0, 0)
+        right_lay.setSpacing(0)
 
         # top bar
         top = QWidget()
         top.setObjectName("topBar")
-        top.setFixedHeight(52)
+        top.setFixedHeight(64)
         top_lay = QHBoxLayout(top)
-        top_lay.setContentsMargins(20, 0, 20, 0)
+        top_lay.setContentsMargins(24, 0, 20, 0)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(0)
-        title = QLabel("Server Monitor")
+        title = QLabel("Dashboard")
         title.setObjectName("appTitle")
         sub = QLabel("Multi-server monitoring with VNC remote desktop")
         sub.setObjectName("appSubtitle")
@@ -78,11 +142,6 @@ class MainWindow(QMainWindow):
 
         top_lay.addLayout(title_col)
         top_lay.addStretch(1)
-
-        add_btn = QPushButton("+ Add Server")
-        add_btn.setObjectName("primaryButton")
-        add_btn.clicked.connect(self._add_server)
-        top_lay.addWidget(add_btn)
 
         menu_btn = QPushButton("•••")
         menu_btn.setObjectName("iconButton")
@@ -104,22 +163,22 @@ class MainWindow(QMainWindow):
         act_interval_10.triggered.connect(lambda: self._set_interval(10))
         act_about.triggered.connect(self._about)
 
-        root.addWidget(top)
+        right_lay.addWidget(top)
 
         # scrollable card area
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setObjectName("cardScroll")
         self._scroll.setStyleSheet(
-            "QScrollArea#cardScroll, QScrollArea#cardScroll > QWidget > QWidget { background-color: #f5f5f7; }"
+            "QScrollArea#cardScroll, QScrollArea#cardScroll > QWidget > QWidget { background-color: #f6f7fb; }"
         )
         self._container = QWidget()
         self._cards_layout = QVBoxLayout(self._container)
-        self._cards_layout.setContentsMargins(20, 16, 20, 16)
-        self._cards_layout.setSpacing(14)
+        self._cards_layout.setContentsMargins(24, 18, 24, 18)
+        self._cards_layout.setSpacing(16)
         self._cards_layout.addStretch(1)
         self._scroll.setWidget(self._container)
-        root.addWidget(self._scroll, 1)
+        right_lay.addWidget(self._scroll, 1)
 
         # empty-state placeholder (hidden when servers exist)
         self._empty_box = QWidget()
@@ -130,7 +189,7 @@ class MainWindow(QMainWindow):
         empty_title = QLabel("No servers yet")
         empty_title.setObjectName("emptyTitle")
         empty_title.setAlignment(Qt.AlignCenter)
-        empty_hint = QLabel("Click \u201c+ Add Server\u201d in the top bar to add your first server.")
+        empty_hint = QLabel("Click \u201cAdd Server\u201d in the sidebar to add your first server.")
         empty_hint.setObjectName("emptyHint")
         empty_hint.setAlignment(Qt.AlignCenter)
         empty_lay.addStretch(1)
@@ -140,6 +199,8 @@ class MainWindow(QMainWindow):
         self._empty_box.hide()
         self._cards_layout.addWidget(self._empty_box)
         self._cards_layout.setStretchFactor(self._empty_box, 1)
+
+        root.addWidget(right, 1)
 
         self.setCentralWidget(central)
 
@@ -219,6 +280,18 @@ class MainWindow(QMainWindow):
                 self._rebuild_cards()
                 self._refresh_now()
 
+    def _show_dashboard(self):
+        for b in self._nav_btns:
+            b.setChecked(b is self.sender())
+        self._refresh_now()
+
+    def _open_settings(self):
+        for b in self._nav_btns:
+            b.setChecked(b is self.sender())
+        dlg = SettingsDialog(self, current=self.config.refresh_interval)
+        if dlg.exec():
+            self._set_interval(dlg.interval())
+
     def _open_vnc(self, server_id):
         cfg = self.config.get_server(server_id)
         if not cfg:
@@ -257,7 +330,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About Server Monitor",
-            "Server Monitor v1.2.1\n\n"
+            "Server Monitor v1.3.0\n\n"
             "Multi-server monitoring with live charts and VNC remote desktop.\n\n"
             "Uses a lightweight agent (monitor_agent.py) running on each server.",
         )
@@ -270,3 +343,37 @@ class MainWindow(QMainWindow):
             except RuntimeError:
                 pass
         super().closeEvent(event)
+
+
+class SettingsDialog(QDialog):
+    def __init__(self, parent=None, current=3):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.setMinimumWidth(380)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 22, 24, 22)
+        lay.setSpacing(16)
+
+        title = QLabel("Settings")
+        title.setObjectName("dialogTitle")
+        lay.addWidget(title)
+
+        form = QFormLayout()
+        form.setSpacing(12)
+        self._interval = QComboBox()
+        for secs in (2, 3, 5, 10, 15):
+            self._interval.addItem(f"{secs} seconds", secs)
+        idx = self._interval.findData(current)
+        self._interval.setCurrentIndex(idx if idx >= 0 else 0)
+        form.addRow("Refresh interval", self._interval)
+        lay.addLayout(form)
+
+        btns = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        lay.addWidget(btns)
+
+    def interval(self):
+        return self._interval.currentData()
