@@ -96,6 +96,7 @@ class ServerMonitor:
                     st.last_update = time.time()
                     st.latency_ms = round(latency, 1)
                     self._append_history(sid, data)
+                log.info("fetch %s OK (%.1f ms)", url, latency)
             else:
                 with self._lock:
                     st = self._statuses[sid]

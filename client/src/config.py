@@ -21,17 +21,7 @@ def config_dir():
 
 
 def default_servers():
-    return [
-        {
-            "name": "My Server",
-            "host": "YOUR_SERVER_IP",
-            "port": 8899,
-            "token": "",
-            "vnc_port": 5901,
-            "vnc_password": "",
-            "color": "#2563eb",
-        }
-    ]
+    return []
 
 
 class Config:
