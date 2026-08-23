@@ -74,6 +74,11 @@ def shoot():
     c0.grab().save(os.path.join(out_dir, "card0.png"))
     for name, chart in c0.charts.items():
         chart.grab().save(os.path.join(out_dir, f"chart_{name.replace('%', 'pct').replace(' ', '')}.png"))
+    # dark mode
+    win._toggle_theme()
+    app.processEvents()
+    win.grab().save(os.path.join(out_dir, "main_window_dark.png"))
+    c0.grab().save(os.path.join(out_dir, "card0_dark.png"))
     win.close()
     app.quit()
 

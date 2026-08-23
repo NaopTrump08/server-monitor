@@ -14,11 +14,13 @@ from PySide6.QtCore import Qt
 app = QApplication([])
 
 from ui.theme import STYLE_SHEET
+from ui import theme
 from ui.card import ServerCard
 from ui.chart import LiveChart
 from ui.main_window import MainWindow, SettingsDialog
 
 app.setStyleSheet(STYLE_SHEET)
+theme_before = STYLE_SHEET
 
 failures = []
 
@@ -183,6 +185,43 @@ check("cpu chart renders non-blank", img.pixel(110, 60) != img.pixel(0, 0), col)
 # ---------- SettingsDialog ----------
 dlg = SettingsDialog(current=5)
 check("settings dialog interval", dlg.interval() == 5, str(dlg.interval()))
+
+# ---------- theme toggle ----------
+from PySide6.QtWidgets import QApplication as QA
+
+app.setStyleSheet("")
+app.setStyleSheet(theme_before)
+check("initial theme light", theme.current() == "light", theme.current())
+def rgb_int(s):
+    return int(s[1:3], 16) + int(s[3:5], 16) + int(s[5:7], 16)
+
+
+light_sidebar = sample(win, 105, 400)
+
+win._toggle_theme()
+app.processEvents()
+win.grab()
+app.processEvents()
+dark_sidebar = sample(win, 105, 400)
+check("toggle switches to dark", theme.current() == "dark", theme.current())
+check(
+    "sidebar darkens",
+    rgb_int(dark_sidebar) < rgb_int(light_sidebar),
+    f"{light_sidebar} -> {dark_sidebar}",
+)
+check("theme persisted to config", win.config.theme == "dark", win.config.theme)
+
+# card tiles repainted with dark chart bg
+cpu_chart.grab()
+app.processEvents()
+img2 = cpu_chart.grab().toImage()
+c = img2.pixelColor(5, 5).name().upper()
+check("dark chart tile bg dark", int(c[1:3], 16) < 80, c)
+
+win._toggle_theme()
+app.processEvents()
+check("toggle back to light", theme.current() == "light", theme.current())
+check("theme persisted light", win.config.theme == "light", win.config.theme)
 
 # ---------- empty state ----------
 from config import Config as C2

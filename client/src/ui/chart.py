@@ -4,6 +4,8 @@ from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
+from . import theme
+
 
 class LiveChart(QWidget):
     """Multi-series line chart. data: list of (ts, v1, v2, v3, v4)."""
@@ -58,20 +60,21 @@ class LiveChart(QWidget):
         return path
 
     def paintEvent(self, event):
+        tk = theme.tokens()
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         rect = self.rect().adjusted(4, 4, -4, -4)
 
         # background
-        p.fillRect(rect, QColor("#f6f7fb"))
+        p.fillRect(rect, QColor(tk["chart_bg"]))
 
         if not self._data or not self._keys:
-            p.setPen(QColor("#aeaeb2"))
+            p.setPen(QColor(tk["chart_empty"]))
             p.drawText(rect, Qt.AlignCenter, "Waiting for data...")
             return
 
         # grid
-        grid_pen = QPen(QColor("#e8e8ef"))
+        grid_pen = QPen(QColor(tk["chart_grid"]))
         grid_pen.setWidth(1)
         p.setPen(grid_pen)
         for i in range(1, 4):
@@ -128,7 +131,7 @@ class LiveChart(QWidget):
             top = QColor(color)
             top.setAlpha(70)
             grad.setColorAt(0.0, top)
-            grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+            grad.setColorAt(1.0, QColor(tk["chart_bg"]))
             p.fillPath(fill_path, grad)
 
             # smooth line
@@ -154,7 +157,7 @@ class LiveChart(QWidget):
                 p.setPen(Qt.NoPen)
                 p.setBrush(color)
                 p.drawRoundedRect(QRectF(x, rect.top() + 6, 8, 8), 2, 2)
-                p.setPen(QColor("#86868b"))
+                p.setPen(QColor(tk["chart_legend"]))
                 p.drawText(x + 12, rect.top() + 14, label)
                 x += 12 + p.fontMetrics().horizontalAdvance(label) + 16
 

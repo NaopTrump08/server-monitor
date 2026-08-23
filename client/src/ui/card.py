@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from .chart import LiveChart
 from .format import format_bytes, format_rate, format_time, format_uptime
+from . import theme
 
 
 class ServerCard(QFrame):
@@ -190,6 +191,17 @@ class ServerCard(QFrame):
         self.host_label.setText(cfg.get("host", ""))
         self.vnc_btn.setEnabled(bool(cfg.get("vnc_port")))
 
+    def refresh_theme(self):
+        """Re-apply theme-dependent inline colours after a mode switch."""
+        tk = theme.tokens()
+        for widget in self.findChildren(_MetricValue):
+            widget.set_title(widget._title or widget.label.text())
+        for widget in self.findChildren(_MetricLine):
+            widget.refresh_colour(tk)
+        for widget in self.findChildren(_ChartTile):
+            widget.refresh_colour(tk)
+        self.update()
+
     def update_status(self, status):
         self._apply_status(
             online=status.get("online", False),
@@ -265,6 +277,7 @@ class _MetricValue(QWidget):
         super().__init__(parent)
         self.setObjectName("metricCard")
         self._accent = "purple"
+        self._title = "-"
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 10, 12, 10)
         lay.setSpacing(2)
@@ -291,8 +304,12 @@ class _MetricValue(QWidget):
         self.value.setText(text + unit)
 
     def set_title(self, title):
+        self._title = title
         self.label.setText(title)
-        self.label.setStyleSheet("font-weight: 600; color: #48484a;")
+        tk = theme.tokens()
+        self.label.setStyleSheet(
+            f"font-weight: 600; color: {tk['text']};"
+        )
 
 
 class _Gauge(QWidget):
@@ -328,14 +345,21 @@ class _MetricLine(QWidget):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
+        self._color = color
         self.key = QLabel(label)
         self.key.setObjectName("metricLabel")
-        self.key.setStyleSheet(f"color: {color};")
         self.val = QLabel(value)
         self.val.setObjectName("metricLabel")
         lay.addWidget(self.key)
         lay.addWidget(self.val)
         lay.addStretch(1)
+        self.refresh_colour(theme.tokens())
+
+    def refresh_colour(self, tk):
+        color = self._color
+        if color in ("#86868b",):
+            color = tk["text_soft"]
+        self.key.setStyleSheet(f"color: {color};")
 
     def set_value(self, text):
         self.val.setText(text)
@@ -368,3 +392,6 @@ class _ChartTile(QWidget):
         self.chart.setSeries([title], [title], [color], normalize=True)
         self.chart.setMinimumHeight(120)
         lay.addWidget(self.chart)
+
+    def refresh_colour(self, tk):
+        self.chart.update()

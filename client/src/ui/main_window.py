@@ -4,6 +4,7 @@ import logging
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from config import Config
 from monitor import ServerMonitor
+from ui import theme
 from ui.card import ServerCard
 from ui.server_dialog import ServerDialog
 from ui.vnc_window import VNCWindow
@@ -44,6 +46,7 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._rebuild_cards()
+        self._apply_theme(self.config.theme, save=False)
 
         # UI refresh pump: pull the latest monitor snapshot on the main
         # thread. The monitor thread never touches Qt, so there is no
@@ -109,6 +112,12 @@ class MainWindow(QMainWindow):
         self._nav_btns[0].setChecked(True)
 
         side_lay.addStretch(1)
+
+        self.theme_btn = QPushButton("")
+        self.theme_btn.setObjectName("themeButton")
+        self.theme_btn.setCursor(Qt.PointingHandCursor)
+        self.theme_btn.clicked.connect(self._toggle_theme)
+        side_lay.addWidget(self.theme_btn)
 
         about_btn = QPushButton("About")
         about_btn.setObjectName("navButton")
@@ -326,11 +335,30 @@ class MainWindow(QMainWindow):
         self.monitor.stop()
         self.monitor.start()
 
+    def _apply_theme(self, mode, save=True):
+        theme.apply_theme(QApplication.instance(), mode)
+        if save:
+            self.config.theme = mode
+        label = "Dark mode" if mode == "light" else "Light mode"
+        self.theme_btn.setText("☾ " + label if mode == "light" else "☀ " + label)
+        for card in self._cards.values():
+            card.refresh_theme()
+        for w in self._vnc_windows:
+            try:
+                w.repaint()
+            except RuntimeError:
+                pass
+
+    def _toggle_theme(self):
+        mode = "dark" if theme.current() == "light" else "light"
+        self._apply_theme(mode)
+        self._show_dashboard()
+
     def _about(self):
         QMessageBox.about(
             self,
             "About Server Monitor",
-            "Server Monitor v1.3.1\n\n"
+            "Server Monitor v1.3.2\n\n"
             "Multi-server monitoring with live charts and VNC remote desktop.\n\n"
             "Uses a lightweight agent (monitor_agent.py) running on each server.",
         )

@@ -18,7 +18,7 @@ def main():
     app_log.setup_logging()
     app_log.install_excepthook()
 
-    from ui.theme import STYLE_SHEET
+    from ui.theme import build_stylesheet
     from ui.main_window import MainWindow
 
     import logging
@@ -43,7 +43,7 @@ def main():
             break
 
     app.setStyle("Fusion")
-    app.setStyleSheet(STYLE_SHEET)
+    app.setStyleSheet(build_stylesheet("light"))
 
     win = MainWindow()
     log.info("MainWindow constructed")
