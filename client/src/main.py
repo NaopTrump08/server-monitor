@@ -10,6 +10,7 @@ def main():
 
     sys.path.insert(0, os.path.dirname(here))
 
+    from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication
 
     import app_log
@@ -26,6 +27,21 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Server Monitor")
+
+    # App icon: bundled resources/icon.ico (packaged) or repo path (source run)
+    exe_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(here)
+    icon_paths = [
+        os.path.join(exe_dir, "resources", "icon.ico"),
+        os.path.join(exe_dir, "resources", "icon.png"),
+        os.path.join(os.path.dirname(here), "..", "resources", "icon.ico"),
+        os.path.join(os.path.dirname(here), "resources", "icon.ico"),
+    ]
+    for p in icon_paths:
+        if os.path.exists(p):
+            app.setWindowIcon(QIcon(p))
+            log.info("App icon loaded from %s", p)
+            break
+
     app.setStyle("Fusion")
     app.setStyleSheet(STYLE_SHEET)
 

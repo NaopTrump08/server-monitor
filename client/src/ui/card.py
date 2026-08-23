@@ -97,6 +97,9 @@ class ServerCard(QFrame):
         self.cpu_value = _MetricValue()
         self.mem_value = _MetricValue()
         self.disk_value = _MetricValue()
+        self.cpu_value.set_title("CPU")
+        self.mem_value.set_title("Memory")
+        self.disk_value.set_title("Disk")
         metrics.addWidget(self.cpu_value)
         metrics.addWidget(self.mem_value)
         metrics.addWidget(self.disk_value)
@@ -136,7 +139,8 @@ class ServerCard(QFrame):
         self.chart.setSeries(
             ["cpu", "mem", "rx", "tx"],
             ["CPU %", "MEM %", "RX", "TX"],
-            ["#3b82f6", "#a855f7", "#22c55e", "#eab308"],
+            ["#0071e3", "#af52de", "#34c759", "#ff9f0a"],
+            normalize=True,
         )
         outer.addWidget(self.chart)
 
@@ -246,6 +250,7 @@ class _MetricValue(QWidget):
 
     def set_title(self, title):
         self.label.setText(title)
+        self.label.setStyleSheet("font-weight: 600; color: #48484a;")
 
 
 class _Gauge(QWidget):

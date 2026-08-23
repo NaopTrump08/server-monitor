@@ -15,13 +15,15 @@ class LiveChart(QWidget):
         self._colors = []
         self._keys = []
         self._max_points = 120
+        self._normalize = False
         self.setMinimumHeight(140)
         self.setObjectName("chartWidget")
 
-    def setSeries(self, keys, labels, colors):
+    def setSeries(self, keys, labels, colors, normalize=False):
         self._keys = keys
         self._labels = labels
         self._colors = colors
+        self._normalize = normalize
         self.update()
 
     def setData(self, data):
@@ -75,14 +77,19 @@ class LiveChart(QWidget):
         # draw series
         for si, key in enumerate(self._keys):
             vals = self._series_values(si)
-            color = QColor(self._colors[si] if si < len(self._colors) else "#3b82f6")
+            color = QColor(self._colors[si] if si < len(self._colors) else "#0071e3")
             pen = QPen(color)
             pen.setWidth(2)
             p.setPen(pen)
             path = QPainterPath()
             for i, v in enumerate(vals):
                 x = x_of(i)
-                y = y_of(v)
+                if self._normalize:
+                    # per-series scaling: each series peaks at its own max
+                    smax = max(vals) or 1
+                    y = rect.bottom() - (v / smax) * rect.height()
+                else:
+                    y = y_of(v)
                 if i == 0:
                     path.moveTo(x, y)
                 else:
@@ -92,7 +99,11 @@ class LiveChart(QWidget):
             # last point dot
             if vals:
                 last_x = x_of(len(vals) - 1)
-                last_y = y_of(vals[-1])
+                if self._normalize:
+                    smax = max(vals) or 1
+                    last_y = rect.bottom() - (vals[-1] / smax) * rect.height()
+                else:
+                    last_y = y_of(vals[-1])
                 p.setBrush(color)
                 p.setPen(Qt.NoPen)
                 p.drawEllipse(QRectF(last_x - 3, last_y - 3, 6, 6))
@@ -103,7 +114,7 @@ class LiveChart(QWidget):
         p.setFont(font)
         x = rect.left() + 8
         for si, label in enumerate(self._labels):
-            color = QColor(self._colors[si] if si < len(self._colors) else "#3b82f6")
+            color = QColor(self._colors[si] if si < len(self._colors) else "#0071e3")
             p.setPen(Qt.NoPen)
             p.setBrush(color)
             p.drawRect(x, rect.top() + 6, 8, 8)

@@ -5,12 +5,16 @@ import os
 block_cipher = None
 
 project_root = os.path.abspath(os.path.join(SPECPATH, ".."))
+resources_dir = os.path.join(project_root, "resources")
 
 a = Analysis(
     [os.path.join(project_root, "src", "main.py")],
     pathex=[os.path.join(project_root, "src")],
     binaries=[],
-    datas=[],
+    datas=[
+        (os.path.join(resources_dir, "icon.ico"), "resources"),
+        (os.path.join(resources_dir, "icon.png"), "resources"),
+    ],
     hiddenimports=[
         "Crypto.Cipher.DES",
         "Crypto.Cipher",
@@ -48,6 +52,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=os.path.join(resources_dir, "icon.ico"),
 )
 
 coll = COLLECT(

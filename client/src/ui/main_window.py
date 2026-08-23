@@ -109,6 +109,10 @@ class MainWindow(QMainWindow):
         # scrollable card area
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
+        self._scroll.setObjectName("cardScroll")
+        self._scroll.setStyleSheet(
+            "QScrollArea#cardScroll, QScrollArea#cardScroll > QWidget > QWidget { background-color: #f5f5f7; }"
+        )
         self._container = QWidget()
         self._cards_layout = QVBoxLayout(self._container)
         self._cards_layout.setContentsMargins(20, 16, 20, 16)
