@@ -33,6 +33,7 @@ class VNCClient(QWidget):
     connected = Signal()
     disconnected = Signal(str)
     framebuffer_changed = Signal(int, int)
+    frame_received = Signal(int, int, int, int, object)  # x, y, w, h, raw32bpp
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -42,10 +43,11 @@ class VNCClient(QWidget):
         self._width = 0
         self._height = 0
         self._image = None
-        self._pending_image = None
         self._pending_geom = (0, 0)
         self._lock = threading.Lock()
         self._fb_update_thread = None
+        self._fb_buf = None
+        self.frame_received.connect(self._render_frame)
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumSize(320, 240)
@@ -165,6 +167,8 @@ class VNCClient(QWidget):
         name_len = self._u32()
         self._server_name = self._recv_exact(name_len).decode(errors="replace")
 
+        self._fb_buf = bytearray(self._width * self._height * 4)
+
         self._fb_update_thread = threading.Thread(target=self._fb_consumer, daemon=True)
         self._fb_update_thread.start()
 
@@ -211,6 +215,7 @@ class VNCClient(QWidget):
                 break
             if mtype == 0:  # FramebufferUpdate
                 self._read_fb_update()
+                self._request_update()
             elif mtype == 2:  # Bell
                 pass
             elif mtype == 3:  # ServerCutText
@@ -219,6 +224,13 @@ class VNCClient(QWidget):
             else:
                 break
         self._running = False
+
+    def _request_update(self):
+        # Incremental FramebufferUpdateRequest for subsequent frames.
+        try:
+            self._send(struct.pack(">BBHHHH", 3, 1, 0, 0, self._width, self._height))
+        except OSError:
+            pass
 
     def _u32(self):
         return struct.unpack(">I", self._recv_exact(4))[0]
@@ -248,29 +260,35 @@ class VNCClient(QWidget):
     def _apply_raw(self, x, y, w, h, data):
         # Server default format: 32-bit little-endian RGB888.
         # Qt Format_RGB32 memory layout is B,G,R,A per pixel, so bytes match.
-        img = QImage(w, h, QImage.Format_RGB32)
-        buf = img.bits()
-        mv = buf.cast("B") if hasattr(buf, "cast") else memoryview(buf)
-        mv[:] = data[: w * h * 4]
-        self._commit_region(x, y, img)
+        # Keep the byte framebuffer for CopyRect, then hand to the main thread.
+        if self._fb_buf is not None:
+            stride = self._width * 4
+            for row in range(h):
+                src = row * w * 4
+                dst = (y + row) * stride + x * 4
+                self._fb_buf[dst:dst + w * 4] = data[src:src + w * 4]
+        self.frame_received.emit(x, y, w, h, data[: w * h * 4])
 
     def _apply_copyrect(self, x, y, w, h, sx, sy):
-        if self._image is None:
+        # Operate on the byte framebuffer in the background thread,
+        # then hand the region to the main thread for Qt rendering.
+        if self._fb_buf is None:
             return
-        self._image = self._image.copy()
-        src = self._image.copy(sx, sy, w, h)
-        painter = QPainter(self._image)
-        painter.drawImage(x, y, src)
-        painter.end()
-        self.update()
+        stride = self._width * 4
+        for row in range(h):
+            src_off = (sy + row) * stride + sx * 4
+            dst_off = (y + row) * stride + x * 4
+            self._fb_buf[dst_off:dst_off + w * 4] = self._fb_buf[src_off:src_off + w * 4]
+        region = bytes(self._fb_buf[y * stride + x * 4 : (y + h) * stride + x * 4])
+        self.frame_received.emit(x, y, w, h, region)
 
     def _apply_zrle(self, x, y, w, h, data):
-        # minimal ZRLE support: treat tiles as raw when uncompressed tiles present
+        # Decode ZRLE into raw 32-bit bytes (little-endian BGRA/RGB32 layout),
+        # then hand to the main thread for Qt rendering.
         try:
-            img = QImage(w, h, QImage.Format_RGB32)
+            stride = w * 4
+            buf = bytearray(stride * h)
             pos = 0
-            tile = 0
-            tiles_x = (w + 63) // 64
             for ty in range(0, h, 64):
                 for tx in range(0, w, 64):
                     tw = min(64, w - tx)
@@ -279,19 +297,22 @@ class VNCClient(QWidget):
                     pos += 1
                     if subenc == 0:
                         # Raw subrect
-                        px = self._read_zrle_pixels(data, pos, tw * th, subenc)
-                        pos += tw * th * 3
-                        self._blit(img, px, tx, ty, tw, th)
-                    else:
-                        # background/foreground fills + subrects
-                        bg = self._read_zrle_pixel(data, pos)
-                        pos += 3
-                        # fill background
                         for r in range(th):
                             for c in range(tw):
-                                img.setPixel(tx + c, ty + r, self._rgb(bg))
+                                b, g, rr = data[pos], data[pos + 1], data[pos + 2]
+                                pos += 3
+                                off = (r * stride) + (c * 4)
+                                buf[off] = b
+                                buf[off + 1] = g
+                                buf[off + 2] = rr
+                                buf[off + 3] = 0
+                    else:
+                        # background/foreground fills + subrects
+                        bg = data[pos], data[pos + 1], data[pos + 2]
+                        pos += 3
+                        self._fill(buf, stride, tx, ty, tw, th, bg)
                         if subenc & 0x02:  # foreground present
-                            fg = self._read_zrle_pixel(data, pos)
+                            fg = data[pos], data[pos + 1], data[pos + 2]
                             pos += 3
                             # packed pixels
                             if subenc & 0x04:
@@ -299,14 +320,14 @@ class VNCClient(QWidget):
                                 pos += (tw * th + 7) // 8
                                 for i, val in enumerate(pixels):
                                     rr, cc = i // tw, i % tw
-                                    img.setPixel(tx + cc, ty + rr, self._rgb(fg if val else bg))
+                                    self._put(buf, stride, tx + cc, ty + rr, fg if val else bg)
                             else:
                                 npix = tw * th
                                 for i in range(npix):
-                                    px = self._read_zrle_pixel(data, pos)
+                                    f = data[pos], data[pos + 1], data[pos + 2]
                                     pos += 3
                                     rr, cc = i // tw, i % tw
-                                    img.setPixel(tx + cc, ty + rr, self._rgb(px))
+                                    self._put(buf, stride, tx + cc, ty + rr, f)
                         # explicit subrects
                         nrects = data[pos]
                         pos += 1
@@ -324,24 +345,36 @@ class VNCClient(QWidget):
                                     if mode == 1:
                                         col = bg
                                     else:
-                                        col = self._rgb(self._read_zrle_pixel(data, pos))
+                                        col = data[pos], data[pos + 1], data[pos + 2]
                                         pos += 3
-                                    img.setPixel(tx + rx + c, ty + ry + r, col)
-                    tile += 1
-            self._commit_region(x, y, img)
+                                    self._put(buf, stride, tx + rx + c, ty + ry + r, col)
+            if self._fb_buf is not None:
+                fb_stride = self._width * 4
+                for row in range(h):
+                    src = row * stride
+                    dst = (y + row) * fb_stride + x * 4
+                    self._fb_buf[dst:dst + stride] = buf[src:src + stride]
+            self.frame_received.emit(x, y, w, h, bytes(buf))
         except Exception:
             pass
 
-    def _read_zrle_pixel(self, data, pos):
-        return data[pos], data[pos + 1], data[pos + 2]
+    def _fill(self, buf, stride, x, y, w, h, color):
+        b, g, r = color
+        for rr in range(h):
+            for cc in range(w):
+                off = (rr * stride) + (cc * 4)
+                buf[off] = b
+                buf[off + 1] = g
+                buf[off + 2] = r
+                buf[off + 3] = 0
 
-    def _read_zrle_pixels(self, data, pos, count, subenc):
-        pixels = []
-        for _ in range(count):
-            b, g, r = data[pos], data[pos + 1], data[pos + 2]
-            pixels.append((r << 16) | (g << 8) | b)
-            pos += 3
-        return pixels
+    def _put(self, buf, stride, x, y, color):
+        b, g, r = color
+        off = (y * stride) + (x * 4)
+        buf[off] = b
+        buf[off + 1] = g
+        buf[off + 2] = r
+        buf[off + 3] = 0
 
     def _zrle_packed_pixels(self, data, pos, count, subenc):
         out = []
@@ -356,18 +389,23 @@ class VNCClient(QWidget):
             bit += 1
         return out
 
-    def _rgb(self, triple):
-        b, g, r = triple
-        return (r << 16) | (g << 8) | b
-
-    def _blit(self, img, pixels, tx, ty, tw, th):
-        for r in range(th):
-            for c in range(tw):
-                img.setPixel(tx + c, ty + r, pixels[r * tw + c])
-
-    def _commit_region(self, x, y, img):
+    def _render_frame(self, x, y, w, h, raw):
+        # Runs on the Qt main thread: build a QImage from raw 32-bit bytes
+        # and composite it into the framebuffer.
+        if w <= 0 or h <= 0 or self._width <= 0:
+            return
+        if len(raw) < w * h * 4:
+            return
+        img = QImage(w, h, QImage.Format_RGB32)
+        buf = img.bits()
+        mv = buf.cast("B") if hasattr(buf, "cast") else memoryview(buf)
+        mv[:] = raw[: w * h * 4]
         with self._lock:
-            if self._image is None or self._image.width() != self._width or self._image.height() != self._height:
+            if (
+                self._image is None
+                or self._image.width() != self._width
+                or self._image.height() != self._height
+            ):
                 self._image = QImage(self._width, self._height, QImage.Format_RGB32)
                 self._image.fill(QColor("#1a2235"))
             painter = QPainter(self._image)
