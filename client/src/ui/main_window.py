@@ -257,7 +257,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About Server Monitor",
-            "Server Monitor v1.2.0\n\n"
+            "Server Monitor v1.2.1\n\n"
             "Multi-server monitoring with live charts and VNC remote desktop.\n\n"
             "Uses a lightweight agent (monitor_agent.py) running on each server.",
         )
