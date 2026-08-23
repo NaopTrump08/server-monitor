@@ -44,6 +44,8 @@ class VNCClient(QWidget):
         self._sock = None
         self._thread = None
         self._running = False
+        self._closing = False
+        self._gen = 0
         self._width = 0
         self._height = 0
         self._image = None
@@ -70,14 +72,23 @@ class VNCClient(QWidget):
     def connect_to(self, host, port, password=None, timeout=10):
         self._loading = True
         self._message = "Connecting..."
+        self._closing = False
+        self._gen += 1
+        gen = self._gen
         self._thread = threading.Thread(
-            target=self._run, args=(host, port, password, timeout), daemon=True
+            target=self._run, args=(host, port, password, timeout, gen), daemon=True
         )
         self._thread.start()
 
     def disconnect(self):
+        self._closing = True
+        self._gen += 1
         self._running = False
         if self._sock:
+            try:
+                self._sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
             try:
                 self._sock.close()
             except OSError:
@@ -91,20 +102,26 @@ class VNCClient(QWidget):
         return self._sock is not None and self._running
 
     # ---------------------------------------------------------------- RFB loop
-    def _run(self, host, port, password, timeout):
+    def _run(self, host, port, password, timeout, gen):
         try:
             log.info("Connecting to %s:%s (password=%s)", host, port, bool(password))
             self._sock = socket.create_connection((host, port), timeout=timeout)
             self._sock.settimeout(30)
             self._handshake(password)
             self._running = True
-            self._loading = False
-            self._message = ""
+            self._loading = True
+            self._message = "Receiving desktop... (first frame can take a few seconds)"
             log.info("Connected to %s:%s framebuffer %sx%s", host, port, self._width, self._height)
             self.update()
             self.connected.emit()
+            # After the handshake, switch to blocking reads. Idle desktops send
+            # no frames, so a read timeout would spuriously kill the session.
+            self._sock.settimeout(None)
             self._message_loop()
         except Exception as e:
+            if self._closing or gen != self._gen:
+                log.info("VNC disconnected by user")
+                return
             self._loading = False
             self._message = f"Connection failed: {e}"
             log.error("VNC connection error: %s", e, exc_info=True)
@@ -437,21 +454,25 @@ class VNCClient(QWidget):
                 or self._image.height() != self._height
             ):
                 self._image = QImage(self._width, self._height, QImage.Format_RGB32)
-                self._image.fill(QColor("#1a2235"))
+                self._image.fill(QColor("#f2f2f4"))
             painter = QPainter(self._image)
             painter.drawImage(x, y, img)
             painter.end()
+        if self._loading:
+            self._loading = False
+            self._message = ""
+            log.info("First frame rendered %sx%s", self._width, self._height)
         self.update()
         self.framebuffer_changed.emit(self._width, self._height)
 
     # ---------------------------------------------------------------- painting
     def paintEvent(self, event):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor("#0f1420"))
+        p.fillRect(self.rect(), QColor("#f2f2f4"))
         if self._image is not None:
             p.drawImage(0, 0, self._image)
         if self._loading or not self.is_connected():
-            p.setPen(QColor("#8b96ab"))
+            p.setPen(QColor("#86868b"))
             f = QFont()
             f.setPointSize(10)
             p.setFont(f)

@@ -117,6 +117,26 @@ class MainWindow(QMainWindow):
         self._scroll.setWidget(self._container)
         root.addWidget(self._scroll, 1)
 
+        # empty-state placeholder (hidden when servers exist)
+        self._empty_box = QWidget()
+        self._empty_box.setObjectName("emptyBox")
+        empty_lay = QVBoxLayout(self._empty_box)
+        empty_lay.setContentsMargins(24, 24, 24, 24)
+        empty_lay.setSpacing(10)
+        empty_title = QLabel("No servers yet")
+        empty_title.setObjectName("emptyTitle")
+        empty_title.setAlignment(Qt.AlignCenter)
+        empty_hint = QLabel("Click \u201c+ Add Server\u201d in the top bar to add your first server.")
+        empty_hint.setObjectName("emptyHint")
+        empty_hint.setAlignment(Qt.AlignCenter)
+        empty_lay.addStretch(1)
+        empty_lay.addWidget(empty_title)
+        empty_lay.addWidget(empty_hint)
+        empty_lay.addStretch(1)
+        self._empty_box.hide()
+        self._cards_layout.addWidget(self._empty_box)
+        self._cards_layout.setStretchFactor(self._empty_box, 1)
+
         self.setCentralWidget(central)
 
         # status bar
@@ -128,21 +148,19 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------------- cards
     def _rebuild_cards(self):
         servers = self.config.servers
-        # remove removed cards
-        for sid in list(self._cards.keys()):
-            if sid >= len(servers):
-                card = self._cards.pop(sid)
-                self._cards_layout.removeWidget(card)
-                card.deleteLater()
-        # add new cards
+        # remove all existing cards
+        for card in list(self._cards.values()):
+            self._cards_layout.removeWidget(card)
+            card.deleteLater()
+        self._cards.clear()
+        # add cards
         for i, s in enumerate(servers):
-            if i not in self._cards:
-                card = ServerCard(i, on_vnc=self._open_vnc)
-                card.set_server_config(s)
-                self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
-                self._cards[i] = card
-            else:
-                self._cards[i].set_server_config(s)
+            card = ServerCard(i, on_vnc=self._open_vnc, on_edit=self._edit_server, on_delete=self._delete_server)
+            card.set_server_config(s)
+            self._cards_layout.insertWidget(self._cards_layout.count() - 2, card)
+            self._cards[i] = card
+        # empty state
+        self._empty_box.setVisible(len(servers) == 0)
 
     def _check_cfg_change(self):
         servers = self.config.servers
@@ -169,6 +187,33 @@ class MainWindow(QMainWindow):
             self.config.add_server(dlg.result_server())
             self._rebuild_cards()
             self._refresh_now()
+
+    def _edit_server(self, server_id):
+        cfg = self.config.get_server(server_id)
+        if not cfg:
+            return
+        dlg = ServerDialog(self, server=cfg)
+        if dlg.exec():
+            if self.config.update_server(server_id, dlg.result_server()):
+                self._rebuild_cards()
+                self._refresh_now()
+
+    def _delete_server(self, server_id):
+        cfg = self.config.get_server(server_id)
+        if not cfg:
+            return
+        name = cfg.get("name", cfg.get("host", "this server"))
+        ret = QMessageBox.question(
+            self,
+            "Delete Server",
+            f"Remove {name} from the list?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if ret == QMessageBox.Yes:
+            if self.config.remove_server(server_id):
+                self._rebuild_cards()
+                self._refresh_now()
 
     def _open_vnc(self, server_id):
         cfg = self.config.get_server(server_id)
@@ -208,7 +253,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About Server Monitor",
-            "Server Monitor v1.0.0\n\n"
+            "Server Monitor v1.2.0\n\n"
             "Multi-server monitoring with live charts and VNC remote desktop.\n\n"
             "Uses a lightweight agent (monitor_agent.py) running on each server.",
         )

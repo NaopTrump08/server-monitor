@@ -37,15 +37,15 @@ class LiveChart(QWidget):
         rect = self.rect().adjusted(4, 4, -4, -4)
 
         # background
-        p.fillRect(rect, QColor("#1a2235"))
+        p.fillRect(rect, QColor("#f5f5f7"))
 
         if not self._data or not self._keys:
-            p.setPen(QColor("#5b657a"))
+            p.setPen(QColor("#aeaeb2"))
             p.drawText(rect, Qt.AlignCenter, "Waiting for data...")
             return
 
         # grid
-        grid_pen = QPen(QColor("#232c40"))
+        grid_pen = QPen(QColor("#e3e3e8"))
         grid_pen.setWidth(1)
         p.setPen(grid_pen)
         for i in range(1, 4):
@@ -107,7 +107,7 @@ class LiveChart(QWidget):
             p.setPen(Qt.NoPen)
             p.setBrush(color)
             p.drawRect(x, rect.top() + 6, 8, 8)
-            p.setPen(QColor("#c3ccdb"))
+            p.setPen(QColor("#86868b"))
             p.drawText(x + 12, rect.top() + 14, label)
             x += 12 + p.fontMetrics().horizontalAdvance(label) + 16
 

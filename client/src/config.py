@@ -26,7 +26,7 @@ def default_servers():
 
 class Config:
     def __init__(self, path=None):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._path = path or os.path.join(config_dir(), "servers.json")
         self._servers = []
         self._refresh_interval = 3

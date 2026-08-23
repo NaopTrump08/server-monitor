@@ -17,10 +17,12 @@ from .format import format_bytes, format_rate, format_time, format_uptime
 
 
 class ServerCard(QFrame):
-    def __init__(self, server_id, on_vnc, parent=None):
+    def __init__(self, server_id, on_vnc, on_edit=None, on_delete=None, parent=None):
         super().__init__(parent)
         self.server_id = server_id
         self._on_vnc = on_vnc
+        self._on_edit = on_edit
+        self._on_delete = on_delete
         self._server_cfg = {}
         self._history = []
         self.setObjectName("serverCard")
@@ -67,12 +69,26 @@ class ServerCard(QFrame):
         self.vnc_btn.setCursor(Qt.PointingHandCursor)
         self.vnc_btn.clicked.connect(self._vnc_clicked)
 
+        self.edit_btn = QPushButton("Edit")
+        self.edit_btn.setObjectName("secondaryButton")
+        self.edit_btn.setFixedHeight(28)
+        self.edit_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_btn.clicked.connect(self._edit_clicked)
+
+        self.del_btn = QPushButton("Delete")
+        self.del_btn.setObjectName("dangerButton")
+        self.del_btn.setFixedHeight(28)
+        self.del_btn.setCursor(Qt.PointingHandCursor)
+        self.del_btn.clicked.connect(self._delete_clicked)
+
         self.latency_label = QLabel("")
         self.latency_label.setObjectName("serverHost")
 
         h.addWidget(self.latency_label)
         h.addWidget(self.status_label)
         h.addWidget(self.vnc_btn)
+        h.addWidget(self.edit_btn)
+        h.addWidget(self.del_btn)
         outer.addWidget(header)
 
         # ---------- metrics row ----------
@@ -107,7 +123,7 @@ class ServerCard(QFrame):
         right_col = QVBoxLayout()
         right_col.setSpacing(6)
         right_col.addWidget(_MetricLine("Uptime", "-", "#eab308"))
-        right_col.addWidget(_MetricLine("Updated", "-", "#8b96ab"))
+        right_col.addWidget(_MetricLine("Updated", "-", "#86868b"))
         self.uptime_line = right_col.itemAt(0).widget()
         self.update_line = right_col.itemAt(1).widget()
         info_row.addLayout(right_col)
@@ -127,6 +143,14 @@ class ServerCard(QFrame):
     def _vnc_clicked(self):
         if self._on_vnc:
             self._on_vnc(self.server_id)
+
+    def _edit_clicked(self):
+        if self._on_edit:
+            self._on_edit(self.server_id)
+
+    def _delete_clicked(self):
+        if self._on_delete:
+            self._on_delete(self.server_id)
 
     def set_server_config(self, cfg):
         self._server_cfg = cfg
