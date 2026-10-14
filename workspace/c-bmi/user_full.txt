@@ -1,0 +1,30 @@
+#include <stdio.h>
+int main()
+{
+   char name[40];
+   int age;
+   int c;
+   float weight=0.0, height=0.0;
+   float bmi=0;
+   printf("Robot: Hi, What's your name?\nI:");
+   scanf("%s", name);
+   printf("Robot: Hello, %s, Nice to meet you. Let's test your BMI.\n", name);
+   printf("Robot: Well, %s, how old are you?\nI:", name);
+   while((c=getchar())!='\n'&& c != EOF);   // clear the input buffer
+   scanf("%d", &age);
+   printf("Robot: Ok, %s, what's your weight in kilograms?\nI:",name);
+   scanf("%f", &weight);
+   printf("Robot: Well, %s, what's your height in centimeters?\nI:", name);
+   scanf("%f", &height);
+   bmi = weight / ((height * height) / 10000);
+   printf("Robot: Well, %s, you BMI is %.2f, ", name, bmi);
+   if(bmi>=0 && bmi <= 18.4)
+       printf("you are underweight.\n");
+   else if(bmi>=18.5 && bmi <= 23.9)
+       printf("you are normal.\n");
+   else if(bmi>=24.0 && bmi <=27.9)
+       printf("you are overweight.\n");
+   else
+       printf("you are obese.\n");
+   return 0;
+}以上文本能放进code block直接运行吗如果不行请指出问题并生成一份可供直接使用的代码
