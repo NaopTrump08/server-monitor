@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "backend": "native",
+  "rasterEngine": "libreoffice",
+  "source": "saved",
+  "inputPath": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\躺平与内卷——青年学生的为与不为.pptx",
+  "sourceSha256": "4579fe9f06529f6069e8ffc30629614d290e25c40bd9003cdf6c4a7a7a61d428",
+  "dpi": 110,
+  "pageCount": 12,
+  "images": [
+    {
+      "index": 1,
+      "page": 1,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0001.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 47028
+    },
+    {
+      "index": 2,
+      "page": 2,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0002.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 102088
+    },
+    {
+      "index": 3,
+      "page": 3,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0003.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 90743
+    },
+    {
+      "index": 4,
+      "page": 4,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0004.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 92527
+    },
+    {
+      "index": 5,
+      "page": 5,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0005.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 85210
+    },
+    {
+      "index": 6,
+      "page": 6,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0006.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 86888
+    },
+    {
+      "index": 7,
+      "page": 7,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0007.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 91981
+    },
+    {
+      "index": 8,
+      "page": 8,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0008.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 90191
+    },
+    {
+      "index": 9,
+      "page": 9,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0009.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 76443
+    },
+    {
+      "index": 10,
+      "page": 10,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0010.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 81638
+    },
+    {
+      "index": 11,
+      "page": 11,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0011.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 99601
+    },
+    {
+      "index": 12,
+      "page": 12,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\preview-v1\\page-0012.png",
+      "width": 1467,
+      "height": 826,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720.0666666666667
+      },
+      "byteLength": 52103
+    }
+  ],
+  "missingFonts": []
+}
