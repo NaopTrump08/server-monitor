@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "backend": "native",
+  "rasterEngine": "pdfium",
+  "source": "saved",
+  "inputPath": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\build\\deck.pdf",
+  "sourceSha256": "c4996e7892bcb53fe16ae11d3e0cb3f77eb20de5bafabdd6bcba0027bbb753a0",
+  "dpi": 144,
+  "pageCount": 7,
+  "images": [
+    {
+      "index": 1,
+      "page": 1,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\preview\\final\\page-0001.png",
+      "width": 1920,
+      "height": 1080,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "byteLength": 815741
+    },
+    {
+      "index": 2,
+      "page": 2,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\preview\\final\\page-0002.png",
+      "width": 1920,
+      "height": 1080,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "byteLength": 747984
+    },
+    {
+      "index": 3,
+      "page": 3,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\preview\\final\\page-0003.png",
+      "width": 1920,
+      "height": 1080,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "byteLength": 734591
+    },
+    {
+      "index": 4,
+      "page": 4,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\preview\\final\\page-0004.png",
+      "width": 1920,
+      "height": 1080,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "byteLength": 862375
+    },
+    {
+      "index": 5,
+      "page": 5,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\preview\\final\\page-0005.png",
+      "width": 1920,
+      "height": 1080,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "byteLength": 934530
+    },
+    {
+      "index": 6,
+      "page": 6,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\preview\\final\\page-0006.png",
+      "width": 1920,
+      "height": 1080,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "byteLength": 796810
+    },
+    {
+      "index": 7,
+      "page": 7,
+      "path": "C:\\Users\\BossYu\\Documents\\deepseek-harness\\default-workspace\\xian-deck\\preview\\final\\page-0007.png",
+      "width": 1920,
+      "height": 1080,
+      "rectangle": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "byteLength": 773456
+    }
+  ],
+  "missingFonts": []
+}
