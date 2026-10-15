@@ -1,414 +1,217 @@
-"""Server status card widget."""
+"""ServerCard — a liquid-glass server status card with rings, network and sparkline."""
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QColor, QPainter, QRadialGradient
 from PySide6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QLabel,
-    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from .chart import LiveChart
-from .format import format_bytes, format_rate, format_time, format_uptime
-from . import theme
+from .chart import AreaChart
+from .format import format_rate
+from .glass import GlassFrame
+from .ring_gauge import RingGauge
 
 
-class ServerCard(QFrame):
-    def __init__(self, server_id, on_vnc, on_edit=None, on_delete=None, parent=None):
+class StatusDot(QWidget):
+    """Small glowing status dot (green = online, red = offline)."""
+
+    def __init__(self, parent=None):
         super().__init__(parent)
+        self._online = False
+        self.setFixedSize(14, 14)
+
+    def set_online(self, online):
+        self._online = bool(online)
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        c = QColor("#34c759") if self._online else QColor("#ff3b30")
+        g = QRadialGradient(QPointF(7, 7), 8)
+        g.setColorAt(0.0, QColor(c.red(), c.green(), c.blue(), 120))
+        g.setColorAt(1.0, QColor(c.red(), c.green(), c.blue(), 0))
+        p.fillRect(self.rect(), g)
+        p.setPen(Qt.NoPen)
+        p.setBrush(c)
+        p.drawEllipse(QPointF(7, 7), 4, 4)
+        p.end()
+
+
+class ServerCard(GlassFrame):
+    ACCENTS = ["#9b6cff", "#5aa7ff", "#38e0ff", "#34c759", "#ff9f0a", "#ff5ea8"]
+
+    def __init__(self, server_id, on_vnc=None, on_edit=None, on_delete=None, parent=None):
+        super().__init__(parent, radius=26)
         self.server_id = server_id
         self._on_vnc = on_vnc
         self._on_edit = on_edit
         self._on_delete = on_delete
-        self._server_cfg = {}
-        self._history = []
-        self.setObjectName("serverCard")
-        self.setMinimumWidth(420)
-
+        self._name = "Server"
+        self._host = ""
+        self._accent = self.ACCENTS[server_id % len(self.ACCENTS)]
+        self.setMinimumWidth(360)
         self._build_ui()
-        self._apply_status(online=False, error="Waiting...")
+        self._apply_offline()
 
-    ACCENTS = ["purple", "blue", "pink", "orange"]
-
+    # ------------------------------------------------------------------ build
     def _build_ui(self):
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 20)
-        outer.setSpacing(0)
+        outer.setContentsMargins(20, 18, 20, 18)
+        outer.setSpacing(14)
 
-        # ---------- gradient banner ----------
-        banner = QWidget()
-        self.accent = self.ACCENTS[self.server_id % len(self.ACCENTS)]
-        banner.setObjectName("cardBanner")
-        banner.setProperty("accent", self.accent)
-        banner.setStyleSheet(
-            "border-top-left-radius: 26px; border-top-right-radius: 26px;"
-        )
-        h = QHBoxLayout(banner)
-        h.setContentsMargins(22, 18, 22, 18)
-        h.setSpacing(10)
-
-        self.status_dot = QLabel()
-        self.status_dot.setFixedSize(12, 12)
-        self.status_dot.setObjectName("statusDot")
-
+        # header
+        head = QHBoxLayout()
+        head.setSpacing(10)
+        self.dot = StatusDot()
         name_col = QVBoxLayout()
-        name_col.setSpacing(0)
-        self.name_label = QLabel("Server")
-        self.name_label.setObjectName("serverName")
-        self.host_label = QLabel("")
-        self.host_label.setObjectName("serverHost")
-        name_col.addWidget(self.name_label)
-        name_col.addWidget(self.host_label)
+        name_col.setSpacing(2)
+        self.name_lbl = QLabel(self._name)
+        self.name_lbl.setObjectName("cardTitle")
+        self.host_lbl = QLabel("")
+        self.host_lbl.setObjectName("cardHost")
+        name_col.addWidget(self.name_lbl)
+        name_col.addWidget(self.host_lbl)
+        head.addWidget(self.dot)
+        head.addLayout(name_col)
+        head.addStretch(1)
+        lat_col = QVBoxLayout()
+        lat_col.setSpacing(0)
+        self.lat_val = QLabel("—")
+        self.lat_val.setObjectName("latencyValue")
+        self.lat_val.setAlignment(Qt.AlignRight)
+        self.lat_lbl = QLabel("延迟")
+        self.lat_lbl.setObjectName("latencyLbl")
+        self.lat_lbl.setAlignment(Qt.AlignRight)
+        lat_col.addWidget(self.lat_val)
+        lat_col.addWidget(self.lat_lbl)
+        head.addLayout(lat_col)
+        outer.addLayout(head)
 
-        h.addWidget(self.status_dot)
-        h.addLayout(name_col)
-        h.addStretch(1)
+        # rings
+        rings = QHBoxLayout()
+        rings.setSpacing(8)
+        self.gauge_cpu = RingGauge(color=self._accent)
+        self.gauge_mem = RingGauge(color="#5aa7ff")
+        self.gauge_disk = RingGauge(color="#38e0ff")
+        for gauge, label in ((self.gauge_cpu, "CPU"), (self.gauge_mem, "内存"), (self.gauge_disk, "磁盘")):
+            box = QVBoxLayout()
+            box.setSpacing(4)
+            box.addWidget(gauge, 0, Qt.AlignHCenter)
+            lab = QLabel(label)
+            lab.setObjectName("metricNote")
+            lab.setAlignment(Qt.AlignCenter)
+            box.addWidget(lab)
+            rings.addLayout(box)
+        outer.addLayout(rings)
 
-        self.latency_label = QLabel("")
-        self.latency_label.setObjectName("serverHost")
+        # network
+        net = QHBoxLayout()
+        net.setSpacing(6)
+        net.setContentsMargins(4, 0, 4, 0)
+        self._rx_arrow = QLabel("↓")
+        self._rx_arrow.setStyleSheet("color: #38e0ff; font-weight: 700;")
+        self.rx_val = QLabel("—")
+        self.rx_val.setObjectName("latencyValue")
+        self.rx_lbl = QLabel("下行")
+        self.rx_lbl.setObjectName("cardHost")
+        net.addWidget(self._rx_arrow)
+        net.addWidget(self.rx_val)
+        net.addWidget(self.rx_lbl)
+        net.addSpacing(18)
+        self._tx_arrow = QLabel("↑")
+        self._tx_arrow.setStyleSheet("color: #34c759; font-weight: 700;")
+        self.tx_val = QLabel("—")
+        self.tx_val.setObjectName("latencyValue")
+        self.tx_lbl = QLabel("上行")
+        self.tx_lbl.setObjectName("cardHost")
+        net.addWidget(self._tx_arrow)
+        net.addWidget(self.tx_val)
+        net.addWidget(self.tx_lbl)
+        net.addStretch(1)
+        outer.addLayout(net)
 
-        self.status_label = QLabel("OFFLINE")
-        self.status_label.setObjectName("statusLabel")
+        # sparkline (CPU history)
+        self.spark = AreaChart(color=self._accent)
+        self.spark.set_fixed_range(0, 100)
+        self.spark.setFixedHeight(52)
+        outer.addWidget(self.spark)
 
-        self.vnc_btn = QPushButton("VNC")
-        self.vnc_btn.setObjectName("primaryButton")
-        self.vnc_btn.setFixedHeight(28)
+        # footer buttons
+        foot = QHBoxLayout()
+        foot.setSpacing(8)
+        self.vnc_btn = QPushButton("远程桌面")
+        self.vnc_btn.setObjectName("ghostButton")
+        self.vnc_btn.setProperty("accent", "true")
         self.vnc_btn.setCursor(Qt.PointingHandCursor)
-        self.vnc_btn.clicked.connect(self._vnc_clicked)
-
-        self.edit_btn = QPushButton("Edit")
-        self.edit_btn.setObjectName("secondaryButton")
-        self.edit_btn.setFixedHeight(28)
+        self.vnc_btn.clicked.connect(lambda: self._on_vnc and self._on_vnc(self.server_id))
+        self.edit_btn = QPushButton("编辑")
+        self.edit_btn.setObjectName("ghostButton")
         self.edit_btn.setCursor(Qt.PointingHandCursor)
-        self.edit_btn.clicked.connect(self._edit_clicked)
-
-        self.del_btn = QPushButton("Delete")
+        self.edit_btn.clicked.connect(lambda: self._on_edit and self._on_edit(self.server_id))
+        self.del_btn = QPushButton("删除")
         self.del_btn.setObjectName("dangerButton")
-        self.del_btn.setFixedHeight(28)
         self.del_btn.setCursor(Qt.PointingHandCursor)
-        self.del_btn.clicked.connect(self._delete_clicked)
+        self.del_btn.clicked.connect(lambda: self._on_delete and self._on_delete(self.server_id))
+        foot.addWidget(self.vnc_btn)
+        foot.addWidget(self.edit_btn)
+        foot.addWidget(self.del_btn)
+        outer.addLayout(foot)
 
-        h.addWidget(self.latency_label)
-        h.addWidget(self.status_label)
-        h.addWidget(self.vnc_btn)
-        h.addWidget(self.edit_btn)
-        h.addWidget(self.del_btn)
-        outer.addWidget(banner)
-
-        # ---------- body ----------
-        body = QVBoxLayout()
-        body.setContentsMargins(20, 18, 20, 0)
-        body.setSpacing(14)
-
-        # metrics row
-        metrics = QHBoxLayout()
-        metrics.setSpacing(14)
-        self.cpu_value = _MetricValue()
-        self.mem_value = _MetricValue()
-        self.disk_value = _MetricValue()
-        self.cpu_value.set_title("CPU")
-        self.mem_value.set_title("Memory")
-        self.disk_value.set_title("Disk")
-        self.cpu_value.set_accent(self.accent)
-        self.mem_value.set_accent(self.accent)
-        self.disk_value.set_accent(self.accent)
-        metrics.addWidget(self.cpu_value)
-        metrics.addWidget(self.mem_value)
-        metrics.addWidget(self.disk_value)
-        body.addLayout(metrics)
-
-        # ---------- gauges ----------
-        self.cpu_bar = _Gauge("CPU Usage", "#3b82f6", "gaugeCpu")
-        self.mem_bar = _Gauge("Memory", "#a855f7", "gaugeMem")
-        body.addWidget(self.cpu_bar)
-        body.addWidget(self.mem_bar)
-
-        # ---------- network + info row ----------
-        info_row = QHBoxLayout()
-        info_row.setSpacing(10)
-
-        left_col = QVBoxLayout()
-        left_col.setSpacing(6)
-        left_col.addWidget(_MetricLine("RX", "0 B/s", "#3b82f6"))
-        left_col.addWidget(_MetricLine("TX", "0 B/s", "#22c55e"))
-        self.rx_line = left_col.itemAt(0).widget()
-        self.tx_line = left_col.itemAt(1).widget()
-        info_row.addLayout(left_col)
-
-        right_col = QVBoxLayout()
-        right_col.setSpacing(6)
-        right_col.addWidget(_MetricLine("Uptime", "-", "#eab308"))
-        right_col.addWidget(_MetricLine("Updated", "-", "#86868b"))
-        self.uptime_line = right_col.itemAt(0).widget()
-        self.update_line = right_col.itemAt(1).widget()
-        info_row.addLayout(right_col)
-
-        info_row.addStretch(1)
-        body.addLayout(info_row)
-
-        # ---------- charts: one mini chart per metric ----------
-        grid = QHBoxLayout()
-        grid.setSpacing(12)
-        self.charts = {}
-        self._tiles = {}
-        specs = [
-            ("CPU %", "#7b4dff", 1),
-            ("MEM %", "#4a8cff", 2),
-            ("RX", "#34c759", 3),
-            ("TX", "#ff9f0a", 4),
-        ]
-        tiles = []
-        for label, color, col in specs:
-            tile = _ChartTile(label, color, col)
-            tiles.append(tile)
-            self.charts[label] = tile.chart
-            self._tiles[label] = tile
-        grid.addWidget(tiles[0])
-        grid.addWidget(tiles[1])
-        grid.addWidget(tiles[2])
-        grid.addWidget(tiles[3])
-        body.addLayout(grid)
-
-        outer.addLayout(body)
-
-    def _vnc_clicked(self):
-        if self._on_vnc:
-            self._on_vnc(self.server_id)
-
-    def _edit_clicked(self):
-        if self._on_edit:
-            self._on_edit(self.server_id)
-
-    def _delete_clicked(self):
-        if self._on_delete:
-            self._on_delete(self.server_id)
-
+    # ---------------------------------------------------------------- updates
     def set_server_config(self, cfg):
-        self._server_cfg = cfg
-        self.name_label.setText(cfg.get("name", cfg.get("host", "")))
-        self.host_label.setText(cfg.get("host", ""))
-        self.vnc_btn.setEnabled(bool(cfg.get("vnc_port")))
+        self._name = cfg.get("name") or cfg.get("host") or "Server"
+        self._host = cfg.get("host", "")
+        self._accent = cfg.get("color") or self.ACCENTS[self.server_id % len(self.ACCENTS)]
+        self.name_lbl.setText(self._name)
+        self.host_lbl.setText(self._host)
+        self.gauge_cpu.set_color(self._accent)
+        self.spark.set_color(self._accent)
+
+    def _apply_offline(self):
+        self.dot.set_online(False)
+        self.gauge_cpu.set_value(0)
+        self.gauge_mem.set_value(0)
+        self.gauge_disk.set_value(0)
+        self.rx_val.setText("—")
+        self.tx_val.setText("—")
+        self.lat_val.setText("—")
+
+    def update_status(self, data):
+        online = bool(data.get("online"))
+        self.dot.set_online(online)
+        d = data.get("data") or {}
+
+        cpu = d.get("cpu", {}).get("percent", 0)
+        mem = d.get("memory", {}).get("percent", 0)
+        disks = d.get("disk") or []
+        disk = max((x.get("percent", 0) for x in disks), default=0)
+        net = d.get("network", {})
+        rx = net.get("rx_rate", 0)
+        tx = net.get("tx_rate", 0)
+
+        self.gauge_cpu.set_value(cpu)
+        self.gauge_mem.set_value(mem)
+        self.gauge_disk.set_value(disk)
+        self.rx_val.setText(format_rate(rx))
+        self.tx_val.setText(format_rate(tx))
+
+        lat = data.get("latency_ms")
+        self.lat_val.setText(f"{int(lat)} ms" if lat is not None else "—")
+
+        self.name_lbl.setText(data.get("name") or self._name)
+        self.host_lbl.setText(data.get("host") or self._host)
+
+        hist = data.get("history") or []
+        self.spark.set_values([h[1] for h in hist][-60:])
 
     def refresh_theme(self):
-        """Re-apply theme-dependent inline colours after a mode switch."""
-        tk = theme.tokens()
-        for widget in self.findChildren(_MetricValue):
-            widget.set_title(widget._title or widget.label.text())
-        for widget in self.findChildren(_MetricLine):
-            widget.refresh_colour(tk)
-        for widget in self.findChildren(_ChartTile):
-            widget.refresh_colour(tk)
+        self.spark.update()
+        self.gauge_cpu.update()
+        self.gauge_mem.update()
+        self.gauge_disk.update()
         self.update()
-
-    def update_status(self, status):
-        self._apply_status(
-            online=status.get("online", False),
-            error=status.get("error"),
-            data=status.get("data", {}),
-            latency=status.get("latency_ms"),
-            last_update=status.get("last_update"),
-        )
-        history = status.get("history", [])
-        if history != self._history:
-            self._history = history
-            for name, chart in self.charts.items():
-                chart.setData(history)
-
-    def _apply_status(self, online, error=None, data=None, latency=None, last_update=None):
-        data = data or {}
-        if online:
-            self.status_dot.setProperty("class", "")
-            self.status_label.setProperty("class", "")
-            self.status_label.setText("ONLINE")
-        else:
-            self.status_dot.setProperty("class", "offline")
-            self.status_label.setProperty("class", "offline")
-            self.status_label.setText("OFFLINE")
-        self.status_dot.style().unpolish(self.status_dot)
-        self.status_dot.style().polish(self.status_dot)
-        self.status_label.style().unpolish(self.status_label)
-        self.status_label.style().polish(self.status_label)
-
-        if latency is not None:
-            self.latency_label.setText(f"{latency} ms")
-        else:
-            self.latency_label.setText("")
-
-        cpu = data.get("cpu", {})
-        mem = data.get("memory", {})
-        disk = data.get("disk", [])
-
-        cpu_pct = cpu.get("percent", 0) if online else 0
-        mem_pct = mem.get("percent", 0) if online else 0
-        disk_pct = disk[0].get("percent", 0) if disk and online else 0
-
-        self.cpu_value.set_value(cpu_pct, "%")
-        self.mem_value.set_value(mem_pct, "%")
-        self.disk_value.set_value(disk_pct, "%")
-
-        self.cpu_bar.set_value(cpu_pct)
-        self.mem_bar.set_value(mem_pct)
-
-        net = data.get("network", {})
-        if online:
-            rx = format_rate(net.get("rx_rate", 0))
-            tx = format_rate(net.get("tx_rate", 0))
-            self.rx_line.set_value(rx)
-            self.tx_line.set_value(tx)
-            sysinfo = data.get("system", {})
-            self.uptime_line.set_value(format_uptime(sysinfo.get("uptime", 0)))
-            self.update_line.set_value(format_time(last_update))
-            self._tiles["CPU %"].set_current(f"{cpu_pct:.0f}%")
-            self._tiles["MEM %"].set_current(f"{mem_pct:.0f}%")
-            self._tiles["RX"].set_current(rx)
-            self._tiles["TX"].set_current(tx)
-        else:
-            self.rx_line.set_value("-")
-            self.tx_line.set_value("-")
-            self.uptime_line.set_value("-")
-            self.update_line.set_value("-")
-            for tile in self._tiles.values():
-                tile.set_current("--")
-
-
-class _MetricValue(QWidget):
-    ACCENT_COLORS = {
-        "purple": "#7b4dff",
-        "blue": "#4a8cff",
-        "pink": "#ff6fa8",
-        "orange": "#ff9f0a",
-    }
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setObjectName("metricCard")
-        self._accent = "purple"
-        self._title = "-"
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(12, 10, 12, 10)
-        lay.setSpacing(2)
-        self.value = QLabel("--")
-        self.value.setObjectName("metricValue")
-        self.label = QLabel("-")
-        self.label.setObjectName("metricLabel")
-        lay.addWidget(self.value)
-        lay.addWidget(self.label)
-
-    def set_accent(self, accent):
-        self._accent = accent
-        color = self.ACCENT_COLORS.get(accent, "#7b4dff")
-        self.value.setStyleSheet(f"color: {color};")
-
-    def set_value(self, value, unit):
-        if value is None:
-            self.value.setText("--")
-            return
-        if isinstance(value, float):
-            text = f"{value:.1f}"
-        else:
-            text = str(value)
-        self.value.setText(text + unit)
-
-    def set_title(self, title):
-        self._title = title
-        self.label.setText(title)
-        tk = theme.tokens()
-        self.label.setStyleSheet(
-            f"font-weight: 600; color: {tk['text']};"
-        )
-
-
-class _Gauge(QWidget):
-    def __init__(self, title, color, obj_name, parent=None):
-        super().__init__(parent)
-        self.setObjectName(obj_name)
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 2, 0, 2)
-        lay.setSpacing(4)
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        self.title = QLabel(title)
-        self.title.setObjectName("metricLabel")
-        self.pct = QLabel("0%")
-        self.pct.setObjectName("metricLabel")
-        row.addWidget(self.title)
-        row.addStretch(1)
-        row.addWidget(self.pct)
-        self.bar = QProgressBar()
-        self.bar.setRange(0, 100)
-        self.bar.setTextVisible(False)
-        lay.addLayout(row)
-        lay.addWidget(self.bar)
-
-    def set_value(self, value):
-        self.bar.setValue(int(value))
-        self.pct.setText(f"{value:.0f}%")
-
-
-class _MetricLine(QWidget):
-    def __init__(self, label, value, color, parent=None):
-        super().__init__(parent)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(8)
-        self._color = color
-        self.key = QLabel(label)
-        self.key.setObjectName("metricLabel")
-        self.val = QLabel(value)
-        self.val.setObjectName("metricLabel")
-        lay.addWidget(self.key)
-        lay.addWidget(self.val)
-        lay.addStretch(1)
-        self.refresh_colour(theme.tokens())
-
-    def refresh_colour(self, tk):
-        color = self._color
-        if color in ("#86868b",):
-            color = tk["text_soft"]
-        self.key.setStyleSheet(f"color: {color};")
-
-    def set_value(self, text):
-        self.val.setText(text)
-
-
-class _ChartTile(QWidget):
-    """A single-metric mini chart with a coloured header."""
-
-    def __init__(self, title, color, column, parent=None):
-        super().__init__(parent)
-        self.setObjectName("chartTile")
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(4)
-        header = QHBoxLayout()
-        header.setContentsMargins(12, 10, 12, 0)
-        dot = QLabel()
-        dot.setFixedSize(10, 10)
-        dot.setStyleSheet(
-            f"background-color: {color}; border-radius: 5px;"
-        )
-        self.title = QLabel(title)
-        self.title.setObjectName("chartTitle")
-        self.title.setStyleSheet(f"color: {color}; font-weight: 600;")
-        header.addWidget(dot)
-        header.addWidget(self.title)
-        header.addStretch(1)
-        self.current = QLabel("--")
-        self.current.setObjectName("chartTitle")
-        self.current.setStyleSheet(f"color: {color}; font-weight: 700;")
-        header.addWidget(self.current)
-        lay.addLayout(header)
-        self.chart = LiveChart(column=column)
-        self.chart.setSeries([title], [title], [color], normalize=True)
-        self.chart.setMinimumHeight(160)
-        lay.addWidget(self.chart)
-
-    def set_current(self, text):
-        self.current.setText(text)
-
-    def refresh_colour(self, tk):
-        self.chart.update()
