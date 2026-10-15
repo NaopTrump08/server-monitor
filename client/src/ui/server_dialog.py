@@ -1,6 +1,7 @@
-"""Add/Edit server dialog."""
+"""Add/Edit server dialog (glass-styled)."""
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QColorDialog,
     QDialog,
@@ -19,79 +20,82 @@ class ServerDialog(QDialog):
     def __init__(self, parent=None, server=None):
         super().__init__(parent)
         self._server = dict(server) if server else {}
-        self.setWindowTitle("Edit Server" if server else "Add Server")
-        self.setMinimumWidth(420)
-        self._color = self._server.get("color", "#2563eb")
+        self.setWindowTitle("编辑服务器" if server else "添加服务器")
+        self.setMinimumWidth(440)
+        self._color = self._server.get("color", "#7b4dff")
         self._build_ui()
         if server:
             self._load_values()
 
     def _build_ui(self):
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(20, 20, 20, 20)
-        lay.setSpacing(14)
+        lay.setContentsMargins(26, 24, 26, 24)
+        lay.setSpacing(16)
 
-        title = QLabel("Edit Server" if self._server else "Add Server")
+        title = QLabel("编辑服务器" if self._server else "添加服务器")
         title.setObjectName("dialogTitle")
         lay.addWidget(title)
 
         form = QFormLayout()
-        form.setSpacing(10)
+        form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignRight)
 
         self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("e.g. WHZT Server")
-        form.addRow("Name", self.name_edit)
+        self.name_edit.setPlaceholderText("例如：生产 · Web 集群")
+        form.addRow("名称", self.name_edit)
 
         self.host_edit = QLineEdit()
-        self.host_edit.setPlaceholderText("e.g. 192.168.1.100")
-        form.addRow("Host / IP", self.host_edit)
+        self.host_edit.setPlaceholderText("例如：192.168.1.100")
+        form.addRow("主机 / IP", self.host_edit)
 
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1, 65535)
         self.port_spin.setValue(8899)
-        form.addRow("Agent Port", self.port_spin)
+        form.addRow("Agent 端口", self.port_spin)
 
         self.token_edit = QLineEdit()
-        self.token_edit.setPlaceholderText("Agent auth token (optional)")
+        self.token_edit.setPlaceholderText("Agent 鉴权 token（可选）")
         self.token_edit.setEchoMode(QLineEdit.Password)
-        form.addRow("Auth Token", self.token_edit)
+        form.addRow("鉴权 Token", self.token_edit)
 
         self.vnc_port_spin = QSpinBox()
         self.vnc_port_spin.setRange(0, 65535)
         self.vnc_port_spin.setValue(5901)
-        form.addRow("VNC Port", self.vnc_port_spin)
+        form.addRow("VNC 端口", self.vnc_port_spin)
 
         self.vnc_pass_edit = QLineEdit()
-        self.vnc_pass_edit.setPlaceholderText("VNC password")
+        self.vnc_pass_edit.setPlaceholderText("VNC 密码")
         self.vnc_pass_edit.setEchoMode(QLineEdit.Password)
-        form.addRow("VNC Password", self.vnc_pass_edit)
+        form.addRow("VNC 密码", self.vnc_pass_edit)
 
         color_row = QHBoxLayout()
-        self.color_btn = QPushButton("Choose Color")
+        self.color_btn = QPushButton("选择颜色")
+        self.color_btn.setObjectName("ghostButton")
+        self.color_btn.setCursor(Qt.PointingHandCursor)
         self.color_btn.clicked.connect(self._pick_color)
         self.color_preview = QLabel()
-        self.color_preview.setFixedSize(20, 20)
-        self.color_preview.setStyleSheet(
-            f"background-color: {self._color}; border-radius: 4px;"
-        )
+        self.color_preview.setFixedSize(22, 22)
+        self.color_preview.setStyleSheet(f"background: {self._color}; border-radius: 7px; border: 1px solid rgba(255,255,255,60);")
         color_row.addWidget(self.color_btn)
         color_row.addWidget(self.color_preview)
         color_row.addStretch(1)
-        form.addRow("Accent Color", color_row)
+        form.addRow("强调色", color_row)
 
         lay.addLayout(form)
 
-        hint = QLabel("Agent must expose /api/stats on the monitor port.")
+        hint = QLabel("Agent 需在监控端口上暴露 /api/stats 接口。")
         hint.setObjectName("hint")
         lay.addWidget(hint)
 
         btns = QHBoxLayout()
         btns.addStretch(1)
-        cancel = QPushButton("Cancel")
+        cancel = QPushButton("取消")
+        cancel.setObjectName("ghostButton")
+        cancel.setCursor(Qt.PointingHandCursor)
         cancel.clicked.connect(self.reject)
-        ok = QPushButton("Save")
+        ok = QPushButton("保存")
         ok.setObjectName("primaryButton")
+        ok.setCursor(Qt.PointingHandCursor)
         ok.clicked.connect(self._on_ok)
         btns.addWidget(cancel)
         btns.addWidget(ok)
@@ -106,20 +110,18 @@ class ServerDialog(QDialog):
         self.vnc_pass_edit.setText(self._server.get("vnc_password", ""))
 
     def _pick_color(self):
-        color = QColorDialog.getColor(
-            QColor(self._color), self, "Choose Accent Color"
-        )
+        color = QColorDialog.getColor(QColor(self._color), self, "选择强调色")
         if color.isValid():
             self._color = color.name()
             self.color_preview.setStyleSheet(
-                f"background-color: {self._color}; border-radius: 4px;"
+                f"background: {self._color}; border-radius: 7px; border: 1px solid rgba(255,255,255,60);"
             )
 
     def _on_ok(self):
         name = self.name_edit.text().strip()
         host = self.host_edit.text().strip()
         if not host:
-            QMessageBox.warning(self, "Invalid", "Host / IP is required.")
+            QMessageBox.warning(self, "无效输入", "主机 / IP 不能为空。")
             return
         if not name:
             name = host
@@ -136,6 +138,3 @@ class ServerDialog(QDialog):
 
     def result_server(self):
         return self._server
-
-
-from PySide6.QtGui import QColor  # noqa: E402
