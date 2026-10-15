@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
     def __init__(self, config=None):
         super().__init__()
         self.setWindowTitle("Server Monitor")
-        self.resize(1440, 920)
+        self.resize(1600, 1000)
         self.config = config or Config()
         self._cards = {}
         self._vnc_windows = []
@@ -81,7 +81,7 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._rebuild_cards()
-        theme.apply_theme(QApplication.instance(), self.config.theme)
+        self._apply_theme(self.config.theme, save=False)
 
         self._ui_timer = QTimer(self)
         self._ui_timer.timeout.connect(self._refresh_ui)
@@ -285,7 +285,7 @@ class MainWindow(QMainWindow):
 
         # trend panel
         self.trend = TrendPanel()
-        self.trend.setFixedHeight(340)
+        self.trend.setFixedHeight(300)
         right_lay.addWidget(self.trend)
 
     def _build_tile(self, layout, icon_kind, color, label):
@@ -371,10 +371,17 @@ class MainWindow(QMainWindow):
             tx = sum(d.get("network", {}).get("tx_rate", 0) for d in data_list)
             self.tile_cpu_val.setText(f"{cpu:.0f}%")
             self.tile_net_val.setText(format_rate(rx + tx))
-            self.tile_cpu_trend.setStyleSheet("color: #ff9f0a;")
-            self.tile_cpu_trend.setText("实时")
-            self.tile_net_trend.setStyleSheet("color: #34c759;")
-            self.tile_net_trend.setText("实时")
+            if cpu < 50:
+                self.tile_cpu_trend.setText("● 正常")
+                self.tile_cpu_trend.setStyleSheet("color: #34c759;")
+            elif cpu < 80:
+                self.tile_cpu_trend.setText("● 偏高")
+                self.tile_cpu_trend.setStyleSheet("color: #ff9f0a;")
+            else:
+                self.tile_cpu_trend.setText("● 告警")
+                self.tile_cpu_trend.setStyleSheet("color: #ff3b30;")
+            self.tile_net_trend.setText("● 实时")
+            self.tile_net_trend.setStyleSheet("color: #38e0ff;")
         else:
             self.tile_cpu_val.setText("—")
             self.tile_net_val.setText("—")
