@@ -30,7 +30,7 @@ class Config:
         self._path = path or os.path.join(config_dir(), "servers.json")
         self._servers = []
         self._refresh_interval = 3
-        self._theme = "light"
+        self._theme = "dark"
         self.load()
 
     def load(self):
@@ -40,7 +40,7 @@ class Config:
                     data = json.load(f)
                 self._servers = data.get("servers", [])
                 self._refresh_interval = data.get("refresh_interval", 3)
-                self._theme = data.get("theme", "light")
+                self._theme = data.get("theme", "dark")
             except (FileNotFoundError, json.JSONDecodeError):
                 self._servers = default_servers()
 
@@ -98,7 +98,7 @@ class Config:
             if not server.get("name"):
                 server["name"] = server.get("host", "Unnamed")
             if not server.get("color"):
-                server["color"] = "#2563eb"
+                server["color"] = "#7b4dff"
             self._servers.append(server)
             self.save()
 
