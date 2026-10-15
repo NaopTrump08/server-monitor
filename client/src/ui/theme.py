@@ -1,229 +1,243 @@
-"""Application-wide QSS — purple-brand dashboard theme with light/dark modes.
+"""Liquid-glass theme — palette tokens + QSS for the Server Monitor client.
 
-Colours are kept in TOKENS and injected into the QSS template. Widgets that
-paint with QPainter (chart.py) read theme.current() for their palette so a
-theme switch recolours them without a restart.
+The ambient background widget (background.py) paints the colourful glow blobs;
+glass panels are translucent so that glow refracts through. Tokens are kept in
+one place and injected into a string.Template QSS, with a light/dark switch.
 """
 
 import string
 
+from PySide6.QtWidgets import QApplication
+
 TOKENS = {
-    "light": {
-        "window_bg": "#f6f7fb",
-        "card_bg": "#ffffff",
-        "card_hover_border": "#d8d8e4",
-        "border": "#ececf1",
-        "border_strong": "#e3e3ea",
-        "text": "#1e1e2a",
-        "text_dim": "#9a9aa8",
-        "text_soft": "#86868b",
-        "sidebar_bg": "#ffffff",
-        "hover": "#f0f0f6",
-        "topbar_bg": "rgba(255, 255, 255, 0.92)",
-        "chart_bg": "#f6f7fb",
-        "chart_grid": "#e8e8ef",
-        "chart_empty": "#aeaeb2",
-        "chart_legend": "#86868b",
-        "tile_bg": "#fafafd",
-        "metric_bg": "#f6f7fb",
-        "metric_hover": "#f0f0f6",
-        "gauge_track": "#f0f0f6",
-        "scroll_handle": "#d5d5de",
-        "scroll_handle_hover": "#bcbcc9",
-        "menu_bg": "#ffffff",
-        "input_bg": "#ffffff",
-        "btn_bg": "#ffffff",
-        "btn_hover": "#f6f6fb",
-        "btn_pressed": "#eef0f6",
-        "btn_disabled_text": "#bcbcc9",
-        "btn_disabled_bg": "#f6f7fb",
-        "empty_border": "#d5d5de",
-        "statusbar_bg": "#ffffff",
-        "dialog_bg": "#ffffff",
-        "window_frame": "#d8d8e4",
-    },
     "dark": {
-        "window_bg": "#15151c",
-        "card_bg": "#1f1f28",
-        "card_hover_border": "#3a3a46",
-        "border": "#2b2b36",
-        "border_strong": "#3a3a46",
-        "text": "#ececf1",
-        "text_dim": "#9a9ab0",
-        "text_soft": "#8a8a9c",
-        "sidebar_bg": "#1b1b23",
-        "hover": "#2a2a35",
-        "topbar_bg": "rgba(27, 27, 35, 0.92)",
-        "chart_bg": "#23232d",
-        "chart_grid": "#33333f",
-        "chart_empty": "#7a7a8c",
-        "chart_legend": "#9a9ab0",
-        "tile_bg": "#262630",
-        "metric_bg": "#262630",
-        "metric_hover": "#2e2e3a",
-        "gauge_track": "#33333f",
-        "scroll_handle": "#3c3c49",
-        "scroll_handle_hover": "#4a4a58",
-        "menu_bg": "#1f1f28",
-        "input_bg": "#262630",
-        "btn_bg": "#262630",
-        "btn_hover": "#2e2e3a",
-        "btn_pressed": "#33333f",
-        "btn_disabled_text": "#5a5a6a",
-        "btn_disabled_bg": "#1f1f28",
-        "empty_border": "#3a3a46",
-        "statusbar_bg": "#1b1b23",
-        "dialog_bg": "#1f1f28",
-        "window_frame": "#3a3a46",
+        "window_bg": "#07080f",
+        "text": "#f5f6fb",
+        "text_dim": "#b6b9cc",
+        "text_soft": "#8a8ea6",
+        "glass_hi": "rgba(255, 255, 255, 42)",
+        "glass_lo": "rgba(255, 255, 255, 8)",
+        "glass_border": "rgba(255, 255, 255, 54)",
+        "glass_border_soft": "rgba(255, 255, 255, 34)",
+        "hover": "rgba(255, 255, 255, 26)",
+        "input_bg": "rgba(255, 255, 255, 22)",
+        "input_border": "rgba(255, 255, 255, 36)",
+        "btn_ghost_bg": "rgba(255, 255, 255, 20)",
+        "btn_ghost_border": "rgba(255, 255, 255, 36)",
+        "btn_ghost_hover": "rgba(255, 255, 255, 34)",
+        "scroll_handle": "rgba(255, 255, 255, 60)",
+        "menu_bg": "rgba(26, 26, 36, 245)",
+    },
+    "light": {
+        "window_bg": "#eef0f7",
+        "text": "#1b1c28",
+        "text_dim": "#5a5d72",
+        "text_soft": "#8a8ea6",
+        "glass_hi": "rgba(255, 255, 255, 210)",
+        "glass_lo": "rgba(255, 255, 255, 120)",
+        "glass_border": "rgba(255, 255, 255, 220)",
+        "glass_border_soft": "rgba(30, 30, 60, 30)",
+        "hover": "rgba(255, 255, 255, 150)",
+        "input_bg": "rgba(255, 255, 255, 190)",
+        "input_border": "rgba(30, 30, 60, 40)",
+        "btn_ghost_bg": "rgba(255, 255, 255, 170)",
+        "btn_ghost_border": "rgba(30, 30, 60, 36)",
+        "btn_ghost_hover": "rgba(255, 255, 255, 230)",
+        "scroll_handle": "rgba(30, 30, 60, 60)",
+        "menu_bg": "rgba(255, 255, 255, 250)",
     },
 }
 
-# brand accents stay the same in both modes
 BRAND = {
-    "purple": "#7b4dff",
-    "purple_end": "#9a6bff",
-    "blue": "#4a8cff",
+    "purple": "#9b6cff",
+    "blue": "#5aa7ff",
+    "cyan": "#38e0ff",
     "green": "#34c759",
     "orange": "#ff9f0a",
-    "pink": "#ff6fa8",
+    "pink": "#ff5ea8",
     "red": "#ff3b30",
-    "yellow": "#eab308",
 }
 
-_CURRENT = "light"
+_CURRENT = "dark"
 
 
 def current():
-    """Return the active mode name ('light' | 'dark')."""
     return _CURRENT
 
 
 def tokens():
-    """Return the active token dict."""
     return TOKENS[_CURRENT]
 
 
 def set_mode(name):
-    """Switch the module-level mode (used by QPainter widgets)."""
     global _CURRENT
     if name in TOKENS:
         _CURRENT = name
 
 
-_QSS_TEMPLATE = string.Template("""
+_QSS = string.Template("""
 * {
-    font-family: "SF Pro Text", "SF Pro Display", "Segoe UI", "PingFang SC",
-                 "Microsoft YaHei", sans-serif;
-    font-size: 14px;
-}
-
-QMainWindow, QDialog {
-    background-color: $window_bg;
-    color: $text;
+    font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 QMainWindow {
-    border: 1px solid $window_frame;
+    background: transparent;
+    color: $text;
 }
-
-QWidget {
-    background-color: transparent;
+QDialog {
+    background: $window_bg;
     color: $text;
 }
 
-/* ---------- Sidebar ---------- */
-#sideBar {
-    background-color: $sidebar_bg;
-    border-right: 1px solid $border;
-}
-
-#brandRow {
-    background-color: transparent;
-}
-
-#brandIcon {
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 $purple, stop:1 $purple_end);
-    border-radius: 9px;
-}
-
-#brandName {
-    font-size: 17px;
-    font-weight: 700;
-    color: $text;
-}
-
-/* sidebar nav buttons */
-QPushButton#navButton {
-    background-color: transparent;
-    color: $text_dim;
+QScrollArea {
+    background: transparent;
     border: none;
+}
+QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+
+QLabel {
+    background: transparent;
+    color: $text;
+}
+QLabel#appTitle { font-size: 22px; font-weight: 700; letter-spacing: 0.3px; }
+QLabel#appSubtitle { font-size: 12px; color: $text_soft; }
+QLabel#brandName { font-size: 17px; font-weight: 700; }
+QLabel#brandSub { font-size: 11px; color: $text_soft; }
+QLabel#sectionTitle { font-size: 15px; font-weight: 600; }
+QLabel#cardTitle { font-size: 16px; font-weight: 600; }
+QLabel#cardHost { font-size: 11px; color: $text_soft; }
+QLabel#latencyValue { font-size: 13px; font-weight: 600; }
+QLabel#latencyLbl { font-size: 10px; color: $text_soft; }
+QLabel#tileNum { font-size: 26px; font-weight: 700; }
+QLabel#tileLbl { font-size: 12px; color: $text_soft; }
+QLabel#tileTrend { font-size: 12px; font-weight: 600; }
+QLabel#metricName { font-size: 14px; font-weight: 600; }
+QLabel#metricValue { font-size: 28px; font-weight: 700; }
+QLabel#metricDelta { font-size: 12px; font-weight: 600; }
+QLabel#metricNote { font-size: 11px; color: $text_soft; }
+QLabel#dialogTitle { font-size: 18px; font-weight: 700; }
+QLabel#hint { color: $text_soft; font-size: 12px; }
+QLabel#navLabel { font-size: 11px; color: $text_soft; letter-spacing: 1.5px; }
+QLabel#userName { font-size: 13px; font-weight: 600; }
+QLabel#userMail { font-size: 11px; color: $text_soft; }
+
+QPushButton {
+    border: none;
+    background: transparent;
+    color: $text;
+    outline: none;
+}
+QPushButton#primaryButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #9b6cff, stop:1 #4d7cff);
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 16px;
+    padding: 11px 20px;
+}
+QPushButton#primaryButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ab7dff, stop:1 #5f8bff);
+}
+QPushButton#primaryButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #8b5cef, stop:1 #3f6ef0);
+}
+QPushButton#ghostButton {
+    background: $btn_ghost_bg;
+    border: 1px solid $btn_ghost_border;
+    border-radius: 13px;
+    padding: 9px 0;
+    color: $text_dim;
+    font-weight: 550;
+}
+QPushButton#ghostButton:hover {
+    background: $btn_ghost_hover;
+    color: $text;
+}
+QPushButton#ghostButton[accent="true"] {
+    background: $btn_ghost_hover;
+    color: $text;
+    border-color: rgba(255, 255, 255, 70);
+}
+QPushButton#dangerButton {
+    background: rgba(255, 59, 48, 34);
+    border: 1px solid rgba(255, 59, 48, 80);
+    border-radius: 13px;
+    padding: 9px 0;
+    color: #ff8a80;
+}
+QPushButton#dangerButton:hover {
+    background: rgba(255, 59, 48, 60);
+}
+QPushButton#iconButton {
+    background: $btn_ghost_bg;
+    border: 1px solid $btn_ghost_border;
+    border-radius: 15px;
+    color: $text;
+}
+QPushButton#iconButton:hover { background: $btn_ghost_hover; }
+QPushButton#navButton {
+    text-align: left;
+    padding: 11px 14px;
     border-radius: 14px;
-    padding: 13px 18px;
+    color: $text_dim;
     font-size: 14px;
     font-weight: 500;
-    text-align: left;
 }
-
-QPushButton#navButton:hover {
-    background-color: $hover;
-    color: $text;
-}
-
+QPushButton#navButton:hover { color: $text; }
 QPushButton#navButton:checked {
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 $purple, stop:1 $purple_end);
-    color: #ffffff;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(255,255,255,44), stop:1 rgba(255,255,255,14));
+    border: 1px solid $glass_border;
+    color: $text;
     font-weight: 600;
 }
 
-/* theme toggle button sits in the sidebar */
-QPushButton#themeButton {
-    background-color: transparent;
-    color: $text_dim;
-    border: 1px solid $border;
+QLineEdit, QSpinBox {
+    background: $input_bg;
+    border: 1px solid $input_border;
     border-radius: 12px;
-    padding: 9px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    text-align: left;
-}
-
-QPushButton#themeButton:hover {
-    background-color: $hover;
+    padding: 9px 12px;
     color: $text;
-    border-color: $border_strong;
+}
+QLineEdit:focus, QSpinBox:focus {
+    border: 1px solid rgba(255, 255, 255, 80);
 }
 
-/* ---------- Top bar ---------- */
-#topBar {
-    background-color: $topbar_bg;
-    border-bottom: 1px solid $border;
+QComboBox {
+    background: $input_bg;
+    border: 1px solid $input_border;
+    border-radius: 12px;
+    padding: 8px 12px;
+    color: $text;
 }
-
-#appTitle {
-    font-size: 26px;
-    font-weight: 700;
+QComboBox QAbstractItemView {
+    background: $menu_bg;
+    border: 1px solid $glass_border_soft;
+    border-radius: 10px;
+    selection-background-color: $hover;
     color: $text;
 }
 
-#appSubtitle {
-    font-size: 13px;
+QToolTip {
+    background: #1f1f28;
+    color: #f5f6fb;
+    border: 1px solid rgba(255, 255, 255, 40);
+    padding: 6px 10px;
+}
+QMenu {
+    background: $menu_bg;
+    border: 1px solid $glass_border_soft;
+    border-radius: 12px;
+    padding: 6px;
+}
+QMenu::item {
+    padding: 8px 24px;
+    border-radius: 8px;
     color: $text_dim;
 }
-
-/* ---------- Scroll area ---------- */
-QScrollArea {
-    border: none;
-    background-color: transparent;
-}
-
-QScrollArea > QWidget > QWidget {
-    background-color: transparent;
-}
-
-QScrollArea#cardScroll, QScrollArea#cardScroll > QWidget > QWidget {
-    background-color: $window_bg;
+QMenu::item:selected {
+    background: $hover;
+    color: $text;
 }
 
 QScrollBar:vertical {
@@ -234,343 +248,24 @@ QScrollBar:vertical {
 QScrollBar::handle:vertical {
     background: $scroll_handle;
     border-radius: 5px;
-    min-height: 30px;
+    min-height: 40px;
 }
-QScrollBar::handle:vertical:hover {
-    background: $scroll_handle_hover;
-}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0;
-}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
 
-/* ---------- Server card ---------- */
-#serverCard {
-    background-color: $card_bg;
-    border: 1px solid $border;
-    border-radius: 26px;
-}
-
-#serverCard:hover {
-    border-color: $card_hover_border;
-}
-
-#cardBanner {
-    background-color: transparent;
-}
-
-#serverName {
-    font-size: 17px;
-    font-weight: 700;
-    color: $text;
-}
-
-#serverHost {
-    font-size: 12px;
-    color: $text_dim;
-}
-
-#statusDot {
-    background-color: $green;
-    border-radius: 6px;
-    min-width: 12px;
-    max-width: 12px;
-    min-height: 12px;
-    max-height: 12px;
-}
-
-#statusDot.offline {
-    background-color: $red;
-}
-
-#statusLabel {
-    font-size: 13px;
-    font-weight: 600;
-    color: $green;
-}
-
-#statusLabel.offline {
-    color: $red;
-}
-
-/* accent tint applied to the banner via dynamic property */
-#cardBanner[accent="purple"] { background-color: rgba(123, 77, 255, 0.06); }
-#cardBanner[accent="blue"]   { background-color: rgba(74, 140, 255, 0.06); }
-#cardBanner[accent="pink"]   { background-color: rgba(255, 111, 168, 0.06); }
-#cardBanner[accent="orange"] { background-color: rgba(255, 201, 74, 0.08); }
-
-#metricValue {
-    font-size: 30px;
-    font-weight: 700;
-    color: $text;
-}
-
-#metricValue.small {
-    font-size: 22px;
-}
-
-#metricLabel {
-    font-size: 12px;
-    font-weight: 500;
-    color: $text_dim;
-}
-
-#metricCard {
-    background-color: $metric_bg;
-    border-radius: 18px;
-}
-
-#metricCard:hover {
-    background-color: $metric_hover;
-}
-
-/* ---------- Progress bar (used as gauge) ---------- */
-QProgressBar {
-    background-color: $gauge_track;
-    border: none;
-    border-radius: 6px;
-    height: 11px;
-    text-align: center;
-}
-
-QProgressBar::chunk {
-    border-radius: 6px;
-}
-
-#gaugeCpu QProgressBar::chunk {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 $purple, stop:1 $purple_end);
-}
-#gaugeMem QProgressBar::chunk {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 $blue, stop:1 #6c9bff);
-}
-
-/* ---------- Chart ---------- */
-#chartWidget {
-    background-color: $chart_bg;
-    border-radius: 18px;
-}
-
-#chartTitle {
-    font-size: 12px;
-    color: $text_dim;
-}
-
-#chartTile {
-    background-color: $tile_bg;
-    border: 1px solid $border;
-    border-radius: 18px;
-}
-
-/* ---------- Buttons ---------- */
-QPushButton {
-    background-color: $btn_bg;
-    color: $text;
-    border: 1px solid $border_strong;
-    border-radius: 12px;
-    padding: 8px 18px;
-    font-weight: 500;
-}
-
-QPushButton:hover {
-    background-color: $btn_hover;
-    border-color: #d0d0dc;
-}
-
-QPushButton:pressed {
-    background-color: $btn_pressed;
-}
-
-QPushButton:disabled {
-    color: $btn_disabled_text;
-    background-color: $btn_disabled_bg;
-    border-color: $border;
-}
-
-QPushButton#primaryButton {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 $purple, stop:1 $purple_end);
-    color: #ffffff;
-    border: none;
-    border-radius: 12px;
-}
-
-QPushButton#primaryButton:hover {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #6f3dff, stop:1 #8a5cff);
-}
-
-QPushButton#secondaryButton {
-    background-color: transparent;
-    color: $purple;
-    border: 1px solid $border_strong;
-    border-radius: 12px;
-}
-
-QPushButton#secondaryButton:hover {
-    background-color: rgba(123, 77, 255, 0.08);
-    border-color: $purple;
-}
-
-QPushButton#dangerButton {
-    background-color: transparent;
-    color: $red;
-    border: 1px solid #f3dcdc;
-    border-radius: 12px;
-}
-
-QPushButton#dangerButton:hover {
-    background-color: rgba(255, 59, 48, 0.08);
-    border-color: $red;
-}
-
-QPushButton#iconButton {
-    background-color: transparent;
-    border: none;
-    padding: 4px 10px;
-    color: $text_dim;
-}
-
-QPushButton#iconButton:hover {
-    color: $text;
-    background-color: $hover;
-}
-
-/* ---------- Inputs ---------- */
-QLineEdit, QSpinBox {
-    background-color: $input_bg;
-    border: 1px solid $border_strong;
-    border-radius: 12px;
-    padding: 8px 14px;
-    color: $text;
-    selection-background-color: $purple;
-}
-
-QLineEdit:focus, QSpinBox:focus {
-    border-color: $purple;
-}
-
-/* ---------- Menus ---------- */
-QMenu {
-    background-color: $menu_bg;
-    border: 1px solid $border;
-    border-radius: 12px;
-    padding: 6px;
-}
-
-QMenu::item {
-    padding: 7px 24px;
-    border-radius: 8px;
-}
-
-QMenu::item:selected {
-    background-color: $purple;
-    color: #ffffff;
-}
-
-QToolTip {
-    background-color: $card_bg;
-    color: $text;
-    border: 1px solid $border;
-    padding: 6px;
-}
-
-/* ---------- Status bar ---------- */
 QStatusBar {
-    background-color: $statusbar_bg;
-    color: $text_dim;
-    border-top: 1px solid $border;
-}
-
-QStatusBar::item {
-    border: none;
-}
-
-/* ---------- Dialogs ---------- */
-QDialog {
-    background-color: $dialog_bg;
-}
-
-#dialogTitle {
-    font-size: 17px;
-    font-weight: 700;
-    color: $text;
-}
-
-QLabel#hint {
-    color: $text_dim;
-    font-size: 12px;
-}
-
-/* ---------- Empty state ---------- */
-#emptyBox {
-    background-color: $card_bg;
-    border: 1px dashed $empty_border;
-    border-radius: 26px;
-}
-
-#emptyTitle {
-    font-size: 22px;
-    font-weight: 700;
-    color: $text;
-}
-
-#emptyHint {
-    font-size: 14px;
-    color: $text_dim;
-}
-
-/* ---------- VNC window toolbar ---------- */
-#vncToolBar {
-    background-color: $statusbar_bg;
-    border-bottom: 1px solid $border;
+    background: transparent;
+    color: $text_soft;
 }
 """)
 
 
-def build_stylesheet(mode="light"):
-    """Render the QSS template for the given mode."""
-    t = TOKENS.get(mode, TOKENS["light"])
-    t = dict(t)
-    t.update(BRAND)
-    return _QSS_TEMPLATE.substitute(t)
+def build_stylesheet(mode=None):
+    if mode:
+        set_mode(mode)
+    return _QSS.substitute(TOKENS[_CURRENT])
 
 
-def apply_theme(app, mode="light"):
-    """Set the active mode and re-apply the stylesheet app-wide.
-
-    A matching QPalette is also installed so any widget that falls back to
-    the palette (e.g. a QSS 'transparent' background) renders the right
-    colour instead of the default light Fusion palette.
-    """
+def apply_theme(app, mode):
     set_mode(mode)
-    app.setStyleSheet(build_stylesheet(mode))
-    app.setPalette(make_palette(mode))
-
-
-def make_palette(mode):
-    """Return a QPalette consistent with the given mode."""
-    from PySide6.QtGui import QColor, QPalette
-
-    if mode == "dark":
-        t = TOKENS["dark"]
-        pal = QPalette()
-        pal.setColor(QPalette.Window, QColor(t["window_bg"]))
-        pal.setColor(QPalette.WindowText, QColor(t["text"]))
-        pal.setColor(QPalette.Base, QColor(t["input_bg"]))
-        pal.setColor(QPalette.AlternateBase, QColor(t["metric_bg"]))
-        pal.setColor(QPalette.ToolTipBase, QColor(t["card_bg"]))
-        pal.setColor(QPalette.ToolTipText, QColor(t["text"]))
-        pal.setColor(QPalette.Text, QColor(t["text"]))
-        pal.setColor(QPalette.Button, QColor(t["btn_bg"]))
-        pal.setColor(QPalette.ButtonText, QColor(t["text"]))
-        pal.setColor(QPalette.BrightText, QColor("#ffffff"))
-        pal.setColor(QPalette.Highlight, QColor(BRAND["purple"]))
-        pal.setColor(QPalette.HighlightedText, QColor("#ffffff"))
-        pal.setColor(QPalette.Link, QColor(BRAND["blue"]))
-        pal.setColor(QPalette.PlaceholderText, QColor(t["text_dim"]))
-        return pal
-    return QPalette()
-
-
-STYLE_SHEET = build_stylesheet("light")
+    app.setStyleSheet(build_stylesheet())
