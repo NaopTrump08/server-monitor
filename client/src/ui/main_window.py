@@ -1,6 +1,7 @@
 """Main application window — liquid-glass dashboard layout."""
 
 import logging
+import os
 
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
@@ -20,18 +21,21 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from background import AmbientBackground
-from config import Config
+from config import Config, config_dir
 from monitor import ServerMonitor
 from ui import theme
+from ui.alerts import AlertManager, AlertsPage
 from ui.card import ServerCard
 from ui.format import format_rate
 from ui.glass import GlassFrame
 from ui.server_dialog import ServerDialog
+from ui.servers_page import ServersPage
 from ui.trend import MetricIcon, TrendPanel
 from ui.vnc_window import VNCWindow
 
@@ -77,6 +81,8 @@ class MainWindow(QMainWindow):
         self.config = config or Config()
         self._cards = {}
         self._vnc_windows = []
+        self._nav_badges = {}
+        self.alerts = AlertManager(os.path.join(config_dir(), "alerts.json"))
 
         self.monitor = ServerMonitor(self.config)
         self.monitor.start()
@@ -146,10 +152,10 @@ class MainWindow(QMainWindow):
 
         self._nav_group = QButtonGroup(self)
         self._nav_group.setExclusive(True)
-        self._add_nav(lay, "总览", checked=True)
-        self._add_nav(lay, "服务器")
+        self._add_nav(lay, "总览", checked=True, on_click=lambda: self._show_page(0))
+        self._add_nav(lay, "服务器", on_click=lambda: self._show_page(1))
         self._add_nav(lay, "远程桌面 VNC", on_click=self._open_vnc_nav)
-        self._add_nav(lay, "告警中心", badge="2")
+        self._add_nav(lay, "告警中心", badge="0", on_click=lambda: self._show_page(2))
         self._add_nav(lay, "设置", on_click=self._open_settings)
 
         lay.addStretch(1)
@@ -191,15 +197,17 @@ class MainWindow(QMainWindow):
             b.clicked.connect(on_click)
         self._nav_group.addButton(b)
         row.addWidget(b, 1)
-        if badge:
-            lab = QLabel(badge)
+        if badge is not None:
+            lab = QLabel(badge if badge != "0" else "")
             lab.setAlignment(Qt.AlignCenter)
             lab.setFixedSize(24, 18)
             lab.setStyleSheet(
                 "color: #ff8aa6; background: rgba(255,94,120,0.22);"
                 " border: 1px solid rgba(255,94,120,0.35); border-radius: 9px; font-size: 11px; font-weight: 700;"
             )
+            lab.setVisible(bool(badge) and badge != "0")
             row.addWidget(lab)
+            self._nav_badges[text] = lab
         lay.addLayout(row)
         return b
 
@@ -243,13 +251,23 @@ class MainWindow(QMainWindow):
 
         right_lay.addWidget(topbar)
 
+        # stacked pages (总览 / 服务器 / 告警中心)
+        self._stack = QStackedWidget()
+        right_lay.addWidget(self._stack, 1)
+
+        # ---- page 0: dashboard ----
+        dash = QWidget()
+        dash_lay = QVBoxLayout(dash)
+        dash_lay.setContentsMargins(0, 0, 0, 0)
+        dash_lay.setSpacing(18)
+
         # tiles
         tiles = QHBoxLayout()
         tiles.setSpacing(18)
         self.tile_online_val, self.tile_online_trend = self._build_tile(tiles, "server", "#34c759", "在线服务器")
         self.tile_cpu_val, self.tile_cpu_trend = self._build_tile(tiles, "cpu", "#9b6cff", "平均 CPU 负载")
         self.tile_net_val, self.tile_net_trend = self._build_tile(tiles, "net", "#38e0ff", "总网络吞吐")
-        right_lay.addLayout(tiles)
+        dash_lay.addLayout(tiles)
 
         # cards scroll area
         self._scroll = QScrollArea()
@@ -284,12 +302,27 @@ class MainWindow(QMainWindow):
         self._empty_box.hide()
 
         self._scroll.setWidget(self._container)
-        right_lay.addWidget(self._scroll, 1)
+        dash_lay.addWidget(self._scroll, 1)
 
         # trend panel
         self.trend = TrendPanel()
         self.trend.setFixedHeight(300)
-        right_lay.addWidget(self.trend)
+        dash_lay.addWidget(self.trend)
+
+        self._stack.addWidget(dash)
+
+        # ---- page 1: servers management ----
+        self.servers_page = ServersPage(
+            on_add=self._add_server,
+            on_edit=self._edit_server,
+            on_delete=self._delete_server,
+            on_vnc=self._open_vnc,
+        )
+        self._stack.addWidget(self.servers_page)
+
+        # ---- page 2: alerts centre ----
+        self.alerts_page = AlertsPage()
+        self._stack.addWidget(self.alerts_page)
 
     def _build_tile(self, layout, icon_kind, color, label):
         tile = GlassFrame(radius=24)
@@ -328,6 +361,7 @@ class MainWindow(QMainWindow):
         if not servers:
             self._grid.addWidget(self._empty_box, 0, 0, 1, 3)
             self._empty_box.show()
+            self.servers_page.set_servers(servers)
             return
         self._empty_box.hide()
 
@@ -337,6 +371,12 @@ class MainWindow(QMainWindow):
             row, col = divmod(i, 3)
             self._grid.addWidget(card, row, col)
             self._cards[i] = card
+
+        self.servers_page.set_servers(servers)
+
+    def _show_page(self, index):
+        self._stack.setCurrentIndex(index)
+        self.title_lbl.setText(["总览", "服务器管理", "告警中心"][index])
 
     def _check_cfg_change(self):
         if len(self.config.servers) != len(self._cards):
@@ -349,6 +389,19 @@ class MainWindow(QMainWindow):
             if card:
                 card.update_status(data)
         self.trend.update_data(snapshot)
+
+        # servers page + alerts
+        self.servers_page.update_snapshot(snapshot)
+        events, active = self.alerts.evaluate(snapshot)
+        self.alerts_page.update_view(events, active)
+        badge = self._nav_badges.get("告警中心")
+        if badge:
+            if active:
+                badge.setText(str(active))
+                badge.show()
+            else:
+                badge.setText("")
+                badge.hide()
 
         online = sum(1 for v in snapshot.values() if v.get("online"))
         total = len(snapshot)
