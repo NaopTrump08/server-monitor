@@ -2,7 +2,7 @@
 
 import logging
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QApplication,
@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -146,7 +148,7 @@ class MainWindow(QMainWindow):
         self._nav_group.setExclusive(True)
         self._add_nav(lay, "总览", checked=True)
         self._add_nav(lay, "服务器")
-        self._add_nav(lay, "远程桌面 VNC")
+        self._add_nav(lay, "远程桌面 VNC", on_click=self._open_vnc_nav)
         self._add_nav(lay, "告警中心", badge="2")
         self._add_nav(lay, "设置", on_click=self._open_settings)
 
@@ -199,6 +201,7 @@ class MainWindow(QMainWindow):
             )
             row.addWidget(lab)
         lay.addLayout(row)
+        return b
 
     def _build_right(self, right_lay):
         # topbar
@@ -433,7 +436,6 @@ class MainWindow(QMainWindow):
         if not cfg:
             return
         if not cfg.get("vnc_port"):
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(self, "VNC", "该服务器未配置 VNC 端口。")
             return
         win = VNCWindow(cfg)
@@ -442,6 +444,28 @@ class MainWindow(QMainWindow):
         win.show()
         win.raise_()
         win.activateWindow()
+
+    def _open_vnc_nav(self):
+        """Sidebar VNC entry: connect to the only VNC server, pick from a menu, or hint."""
+        vnc_servers = [(i, s) for i, s in enumerate(self.config.servers) if s.get("vnc_port")]
+        if not vnc_servers:
+            QMessageBox.information(
+                self,
+                "远程桌面 VNC",
+                "还没有配置 VNC 端口的服务器。\n\n"
+                "点击服务器卡片上的「编辑」，填写 VNC 端口（默认 5901）后即可远程连接。",
+            )
+            return
+        if len(vnc_servers) == 1:
+            self._open_vnc(vnc_servers[0][0])
+            return
+        menu = QMenu(self)
+        for i, s in vnc_servers:
+            act = menu.addAction(f"{s.get('name') or s.get('host')}  ·  {s.get('host')}:{s.get('vnc_port')}")
+            act.triggered.connect(lambda checked=False, sid=i: self._open_vnc(sid))
+        btn = self.sender()
+        if btn is not None:
+            menu.exec(btn.mapToGlobal(QPoint(btn.width(), btn.height() // 2)))
 
     def _remove_vnc(self, win):
         if win in self._vnc_windows:
