@@ -27,9 +27,12 @@ def main():
     app.setApplicationName("Server Monitor")
 
     exe_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(here)
+    meipass = getattr(sys, "_MEIPASS", "")
     icon_paths = [
         os.path.join(exe_dir, "resources", "icon.ico"),
         os.path.join(exe_dir, "resources", "icon.png"),
+        os.path.join(meipass, "resources", "icon.ico"),
+        os.path.join(meipass, "resources", "icon.png"),
         os.path.join(os.path.dirname(here), "..", "resources", "icon.ico"),
         os.path.join(os.path.dirname(here), "resources", "icon.ico"),
     ]
