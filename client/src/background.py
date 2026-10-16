@@ -1,7 +1,6 @@
 """Ambient background widget — paints the dark/light base and glowing colour
 blobs that the translucent glass panels refract."""
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QRadialGradient
 from PySide6.QtWidgets import QWidget
 
@@ -9,9 +8,12 @@ from ui import theme
 
 
 class AmbientBackground(QWidget):
+    """Paints the ambient glow. NOTE: must NOT set WA_TransparentForMouseEvents
+    here — it is the parent of every interactive widget and that attribute
+    would swallow mouse events for the whole window (all children included)."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
     def paintEvent(self, event):
         p = QPainter(self)
